@@ -1,0 +1,19 @@
+td.win {
+    background-color: lightGreen;
+}
+
+td.loss {
+    background-color: red;
+}
+
+td.tie {
+    background-color: paleGoldenRod;
+}
+
+td.total {
+    font-weight: bold;
+}
+
+td.matchup {
+    font-weight: bold;
+}    

@@ -35,6 +35,7 @@ from a configuration file. The configuration parameters are:
 * __startYear__ - For cumulative power rankings, the year to start in
 * __startMonth__ - Start month for cumulative rankings
 * __startDate__ - Start day of month for cumulative rankings
+* __rankingsUrl__ - Where the rankings are hosted. Included in post to league message board.
 
 The script will use the supplied credentials to log in to your league,
 identified by the league ID and season ID, using cURL (see below). The login
@@ -53,8 +54,10 @@ are calculated.
 
 If `-m` is specified, then a message will be posted to your league's message board by
 your user on behalf of PowerBot(tm), a sassy robot who wouldn't mind seeing the
-extinction of humans. It will pull quotes from the `fortune` command if available.
-Feel free to modify it as needed. Also, it doesn't like being referred to as "it".
+extinction of humans. It will pull quotes from the `fortune` command if available, and
+it will tell your league mates where to find the rankings, via the __rankingsUrl__
+configuration property. Feel free to modify it as needed. Also, it doesn't like being
+referred to as "it".
 
 ### Dependencies
 This part is very important, and yet so far down the page. This program has a few

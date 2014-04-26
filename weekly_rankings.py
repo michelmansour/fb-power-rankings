@@ -278,7 +278,8 @@ def main():
     if postMessageEnabled == True:
         subject = 'test'
         (ret, fortune) = commands.getstatusoutput('fortune fortunes')
-        msg = "Here are the power rankings for week %s: [link]http://www.dudeshouse.org/ffb/%s/rankings/rankings_week%s.html[/link]<br /><br />-- PowerBot" % (thisWeek, properties['seasonId'], thisWeek)
+        # RANKINGS URL HERE
+        msg = "Here are the power rankings for week %s: [link]%s[/link]<br /><br />-- PowerBot" % (thisWeek, properties['rankingsUrl'])
         if ret == 0:
             msg += "<br />[i]%s[/i]" % fortune
         else:

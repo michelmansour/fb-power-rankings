@@ -49,7 +49,6 @@ def loginESPN(curl, cookieFile):
     curl.perform()
 
 def postMessage(curl, cookieFile, thisWeek, message, subject=''):
-    print "POSTING MESSAGE"
     if subject == '':
         subject = 'Power Rankings: Week %s' % thisWeek
     curl.setopt(pycurl.URL, 'http://games.espn.go.com/flb/tools/postmessage?leagueId=%s&typeId=0&topicId=0' % properties['leagueId'])
@@ -83,7 +82,7 @@ def getScoreboardSoup(curl, cookieFile, thisWeek):
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
     curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/scoreboard?leagueId=%s&seasonId=%s&matchupPeriodId=%s" % (properties['leagueId'], properties['seasonId'], thisWeek))
     curl.setopt(pycurl.FOLLOWLOCATION, 1)
-    curl.setopt(pycurl.COOKIEFILE, "espnCookie.txt")
+    curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.perform()
 
     massage = [(re.compile('TEAM</td>'), lambda match: 'TEAM</th>')]

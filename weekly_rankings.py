@@ -90,13 +90,17 @@ def getScoreboardSoup(curl, cookieFile, thisWeek):
     return soup.findAll(id='scoreboardMatchups')
 
 
-def teamTotals(teamStats):
+def teamTotals(teamStats, categories):
     totals = []
     teamTotals = teamStats.findAll('td', id=re.compile('^total_(\d+)_*'))
-    for t in teamTotals:
-        totals = [float(x.contents[0]) for x in teamTotals]
-    totals[-2] *= -1
-    totals[-1] *= -1
+    lowerBetterCats = set(properties['lowerBetter'].split(','))
+
+    for t in zip(teamTotals, categories):
+        total = float(t[0].contents[0])
+        if t[1] in lowerBetterCats:
+            total *= -1
+        totals.append(total)
+
     return totals
 
 def matchupTotals(scoreSoup):
@@ -105,13 +109,17 @@ def matchupTotals(scoreSoup):
     for score in scoreSoup:
         matchups = score.findAll('tr', 'tableHead')
         for m in matchups:
-            team1Stats = m.nextSibling.nextSibling
+            catRow = m.nextSibling
+            # the first column is NAME, and the last is SCORE, so ignore them
+            categories = [str(x.contents[0]).strip() for x in catRow.findAll('th')[1:-1]]
+            
+            team1Stats = catRow.nextSibling
             team2Stats = team1Stats.nextSibling
             t1Name = str(team1Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t1Name] = teamTotals(team1Stats)
+            totals[t1Name] = teamTotals(team1Stats, categories)
 
             t2Name = str(team2Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t2Name] = teamTotals(team2Stats)
+            totals[t2Name] = teamTotals(team2Stats, categories)
 
             pairings[t1Name] = t2Name
             pairings[t2Name] = t1Name

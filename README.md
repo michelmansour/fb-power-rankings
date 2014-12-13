@@ -35,6 +35,7 @@ from a configuration file. The configuration parameters are:
 * __startYear__ - For cumulative power rankings, the year to start in
 * __startMonth__ - Start month for cumulative rankings
 * __startDate__ - Start day of month for cumulative rankings
+* __lowerBetter__ - Categories where a lower score is better. Separate abbreviations by commas.
 * __rankingsUrl__ - Where the rankings are hosted. Included in post to league message board.
 
 The script will use the supplied credentials to log in to your league,

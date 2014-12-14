@@ -37,7 +37,7 @@ def readConfig(configFile):
 
     return props
 
-def loginESPN(curl, cookieFile):
+def loginESPN(curl, cookieFile, leagueId, username, password):
     fp = open('/dev/null', 'w')
 
     curl.setopt(pycurl.WRITEDATA, fp)
@@ -45,23 +45,23 @@ def loginESPN(curl, cookieFile):
     curl.setopt(pycurl.FOLLOWLOCATION, 1)
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.setopt(pycurl.POST, 1)
-    curl.setopt(pycurl.POSTFIELDS, "failedAttempts=2&SUBMIT=1&failedLocation=http://games.espn.go.com/flb/signin?redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fstandings%%3FleagueId%%3D%s%%26e=1%%26aff_code=espn_fantgames&appRedirect=http://games.espn.go.com/flb/standings?leagueId=%s&cookieDomain=.go.com&multipleDomains=true&username=%s&password=%s&submit=Sign+In" % (properties['leagueId'], properties['leagueId'], properties['username'], properties['password']))
+    curl.setopt(pycurl.POSTFIELDS, "failedAttempts=2&SUBMIT=1&failedLocation=http://games.espn.go.com/flb/signin?redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fstandings%%3FleagueId%%3D%s%%26e=1%%26aff_code=espn_fantgames&appRedirect=http://games.espn.go.com/flb/standings?leagueId=%s&cookieDomain=.go.com&multipleDomains=true&username=%s&password=%s&submit=Sign+In" % (leagueId, leagueId, username, password))
     curl.perform()
 
-def postMessage(curl, cookieFile, thisWeek, message, subject=''):
+def postMessage(curl, cookieFile, leagueId, thisWeek, message, subject=''):
     if subject == '':
         subject = 'Power Rankings: Week %s' % thisWeek
     curl.setopt(pycurl.URL, 'http://games.espn.go.com/flb/tools/postmessage?leagueId=%s&typeId=0&topicId=0' % properties['leagueId'])
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.setopt(pycurl.POST, 1)
-    curl.setopt(pycurl.POSTFIELDS, 'subject=%s&body=%s&btnSubmit=Submit+Message&typeId=0&topicId=0&redir=/flb/leagueoffice?leagueId=%s&incoming=1' % (subject, message, properties['leagueId']))
+    curl.setopt(pycurl.POSTFIELDS, 'subject=%s&body=%s&btnSubmit=Submit+Message&typeId=0&topicId=0&redir=/flb/leagueoffice?leagueId=%s&incoming=1' % (subject, message, leagueId))
     curl.perform()
 
-def getTeamAbbreviations(curl, cookieFile):
+def getTeamAbbreviations(curl, cookieFile, leagueId, seasonId):
     teamAbbrMap = {}
 
     b = StringIO.StringIO()
-    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/leaguesetup/ownerinfo?leagueId=%s&seasonId=%s" % (properties['leagueId'], properties['seasonId']))
+    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/leaguesetup/ownerinfo?leagueId=%s&seasonId=%s" % (leagueId, seasonId))
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.perform()
@@ -77,10 +77,10 @@ def getTeamAbbreviations(curl, cookieFile):
 
     return teamAbbrMap
 
-def getScoreboardSoup(curl, cookieFile, thisWeek):
+def getScoreboardSoup(curl, cookieFile, leagueId, seasonId, thisWeek):
     b = StringIO.StringIO()
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
-    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/scoreboard?leagueId=%s&seasonId=%s&matchupPeriodId=%s" % (properties['leagueId'], properties['seasonId'], thisWeek))
+    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/scoreboard?leagueId=%s&seasonId=%s&matchupPeriodId=%s" % (leagueId, seasonId, thisWeek))
     curl.setopt(pycurl.FOLLOWLOCATION, 1)
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.perform()
@@ -90,10 +90,10 @@ def getScoreboardSoup(curl, cookieFile, thisWeek):
     return soup.findAll(id='scoreboardMatchups')
 
 
-def teamTotals(teamStats, categories):
+def teamTotals(teamStats, categories, lowerBetterCategories):
     totals = []
     teamTotals = teamStats.findAll('td', id=re.compile('^total_(\d+)_*'))
-    lowerBetterCats = set(properties['lowerBetter'].split(','))
+    lowerBetterCats = set(lowerBetterCategories.split(','))
 
     for t in zip(teamTotals, categories):
         total = float(t[0].contents[0])
@@ -103,7 +103,7 @@ def teamTotals(teamStats, categories):
 
     return totals
 
-def matchupTotals(scoreSoup):
+def matchupTotals(scoreSoup, lowerBetterCategories):
     pairings = {}
     totals = {}
     for score in scoreSoup:
@@ -116,10 +116,10 @@ def matchupTotals(scoreSoup):
             team1Stats = catRow.nextSibling
             team2Stats = team1Stats.nextSibling
             t1Name = str(team1Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t1Name] = teamTotals(team1Stats, categories)
+            totals[t1Name] = teamTotals(team1Stats, categories, lowerBetterCategories)
 
             t2Name = str(team2Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t2Name] = teamTotals(team2Stats, categories)
+            totals[t2Name] = teamTotals(team2Stats, categories, lowerBetterCategories)
 
             pairings[t1Name] = t2Name
             pairings[t2Name] = t1Name
@@ -158,7 +158,7 @@ def determineStandings(records):
         standings.append(standingRow)
     return standings
 
-def printStandings(teamAbbrMap, standings, thisWeek):
+def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
     print """
 <html>
 <head>
@@ -171,7 +171,7 @@ def printStandings(teamAbbrMap, standings, thisWeek):
   <h3>Power Rankings</h3>
     <table border="1">
       <tr><th>Rank</th><th>Team</th><th>AWP</th>
-""" % (properties['seasonId'], thisWeek, properties['seasonId'], thisWeek)
+""" % (seasonId, thisWeek, seasonId, thisWeek)
     rank = 1
     for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
         awp = ("%.3f" % row['awp'])[1:]
@@ -235,12 +235,15 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups):
 """
 
 def usage():
-    print """Usage: %s [-w <week_number>] [-m]""" % sys.argv[0]
+    print """Usage: %s [-c <config_file>] [-w <week_number>] [-m]""" % sys.argv[0]
 
 
 def main():
+    path = os.path.dirname(sys.argv[0])
+    configFile = 'pr.conf'
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'w:mh')
+        opts, args = getopt.getopt(sys.argv[1:], 'c:w:mh')
     except getopt.GetoptError, err:
         print str(err)
         usage()
@@ -251,6 +254,8 @@ def main():
         if o == '-h':
             usage()
             sys.exit(0)
+        elif o == '-c':
+            configFile = a
         elif o == '-w':
             try:
                 thisWeek = int(a)
@@ -264,6 +269,10 @@ def main():
             usage()
             sys.exit(1)
 
+    if not path == '':
+        configFile = path + os.pathsep + configFile
+    properties = readConfig(configFile)
+
     if thisWeek <= 0:
         openingDay = datetime.date(int(properties['startYear']), int(properties['startMonth']), int(properties['startDate']))
         openingWeek = openingDay.isocalendar()[1]
@@ -271,15 +280,15 @@ def main():
 
     curl = pycurl.Curl()
     cookieFile = properties['cookieFile']
-    loginESPN(curl, cookieFile)
+    loginESPN(curl, cookieFile, properties['leagueId'], properties['username'], properties['password'])
 
-    teamAbbrMap = getTeamAbbreviations(curl, cookieFile)
-    scores = getScoreboardSoup(curl, cookieFile, thisWeek)
-    (totals, matchups) = matchupTotals(scores)
+    teamAbbrMap = getTeamAbbreviations(curl, cookieFile, properties['leagueId'], properties['seasonId'])
+    scores = getScoreboardSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'], thisWeek)
+    (totals, matchups) = matchupTotals(scores, properties['lowerBetter'])
     records = calculateRecords(totals)
     standings = determineStandings(records)
 
-    printStandings(teamAbbrMap, standings, thisWeek)
+    printStandings(teamAbbrMap, standings, properties['seasonId'], thisWeek)
     printPowerMatrix(teamAbbrMap, standings, records, matchups)
 
     if postMessageEnabled == True:
@@ -291,13 +300,7 @@ def main():
             msg += "<br />[i]%s[/i]" % fortune
         else:
             sys.stderr.write('fortune error')
-        postMessage(curl, cookieFile, thisWeek, msg)
-
-path = os.path.dirname(sys.argv[0])
-configFile = 'pr.conf'
-if not path == '':
-    configFile = path + '/' + configFile
-properties = readConfig(configFile)
+        postMessage(curl, cookieFile, properties['leagueId'], thisWeek, msg)
 
 if __name__ == '__main__':
     main()

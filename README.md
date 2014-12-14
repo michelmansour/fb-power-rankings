@@ -47,7 +47,10 @@ day of competition for the season to get cumulative power rankings.
 
 ### Running the Script
     $ python weekly_rankings -h
-    Usage: weekly_rankings.py [-w <week_number>] [-m]
+    Usage: weekly_rankings.py [-c <config_file>] [-w <week_number>] [-m]
+
+If `-c` is provided, then `<config_file>` is the configuration file to use. By default,
+the script looks for the configuration options in a file called `pr.conf`
 
 If `-w` is provided, then the rankings for `<week_number>` are calculated.
 Otherwise, cumulative rankings, starting from __startYear__-__startMonth__-__startDate__,

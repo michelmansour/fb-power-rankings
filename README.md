@@ -68,7 +68,7 @@ This part is so very important, and yet so far down the page. This program has a
 critical dependencies.
 
 Most critically, it only works with **Python 3**. However, the Python 2
-version can still be found in the __python2__ branch.
+version can still be found in the `python2` branch.
 
 Second most critically, it depends on [PycURL][1]. Which means it's probably
 easiest to run this thing on a *NIX system.
@@ -76,7 +76,7 @@ easiest to run this thing on a *NIX system.
 [1]: http://pycurl.sourceforge.net/
 
 Last most critically, it depends on the venerable [Beautiful Soup][2] library.
-Additionally, it uses the [lxml][3] for Beautiful Soup's underlying HTML parser.
+Additionally, it uses [lxml][3] as Beautiful Soup's underlying HTML parser.
 The Beautiful Soup documentation contains information on [installing lxml][4].
 The Python 3 code only works with Beautiful Soup 4, while the Python 2
 branch has only been tested to work with Beautiful Soup 3.

@@ -1,7 +1,7 @@
 # Fantasy Baseball Power Rankings
 
 ## Overview
-This is a small Python 2 script to compute power rankings in ESPN head-to-head
+This is a small Python 3 script to compute power rankings in ESPN head-to-head
 fantasy baseball leagues. There are often unfair results in H2H, so these power
 rankings are an attempt to make owners who got robbed feel a little better about
 their teams.
@@ -16,7 +16,7 @@ by virtue of playing the league doormat. You'll get them next week.
 
 ### Output
 The script produces an HTML page containing team standings according to the AWP
-records, and a Power Matrix(tm), showing how every team would have fared against
+records, and a Relative Power Matrix(tm), showing how every team would have fared against
 every other team. Sometimes I manually edit the standings to add a witty comment
 about how each team performed, much like professional power rankings do (but
 funnier). The output is further controlled by a stylesheet, which you are free
@@ -64,22 +64,28 @@ configuration property. Feel free to modify it as needed. Also, it doesn't like 
 referred to as "it".
 
 ### Dependencies
-This part is very important, and yet so far down the page. This program has a few
+This part is so very important, and yet so far down the page. This program has a few
 critical dependencies.
 
-Most critically, it only works with **Python 2.x**. I will gladly
-accept pull requests moving it into the Python 3 era.
+Most critically, it only works with **Python 3**. However, the Python 2
+version can still be found in the __python2__ branch.
 
 Second most critically, it depends on [PycURL][1]. Which means it's probably
 easiest to run this thing on a *NIX system.
 
 [1]: http://pycurl.sourceforge.net/
 
-And last most critically, it depends on the venerable [BeautifulSoup][2] library.
-It's only been tested with BeautifulSoup 3, but the latest 4.x release should
-also work.
+Last most critically, it depends on the venerable [Beautiful Soup][2] library.
+Additionally, it uses the [lxml][3] for Beautiful Soup's underlying HTML parser.
+The Beautiful Soup documentation contains information on [installing lxml][4].
+The Python 3 code only works with Beautiful Soup 4, while the Python 2
+branch has only been tested to work with Beautiful Soup 3.
 
 [2]: http://www.crummy.com/software/BeautifulSoup/
+[3]: http://lxml.de/
+[4]: http://www.crummy.com/software/BeautifulSoup/bs4/doc/#installing-a-parser
+
+
 
 ## License and Copyright
 Distributed under the MIT License.

@@ -20,12 +20,12 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import pycurl
-from BeautifulSoup import BeautifulSoup
-import StringIO
+from bs4 import BeautifulSoup
+import io
 import re
 import datetime
 import getopt
-import sys, os, commands
+import sys, os, subprocess
 
 def readConfig(configFile):
     props = {}
@@ -38,7 +38,7 @@ def readConfig(configFile):
     return props
 
 def loginESPN(curl, cookieFile, leagueId, username, password):
-    fp = open('/dev/null', 'w')
+    fp = open('/dev/null', 'wb')
 
     curl.setopt(pycurl.WRITEDATA, fp)
     curl.setopt(pycurl.URL, "https://r.espn.go.com/espn/fantasy/login")
@@ -60,7 +60,7 @@ def postMessage(curl, cookieFile, leagueId, thisWeek, message, subject=''):
 def getTeamAbbreviations(curl, cookieFile, leagueId, seasonId):
     teamAbbrMap = {}
 
-    b = StringIO.StringIO()
+    b = io.BytesIO()
     curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/leaguesetup/ownerinfo?leagueId=%s&seasonId=%s" % (leagueId, seasonId))
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
@@ -78,7 +78,7 @@ def getTeamAbbreviations(curl, cookieFile, leagueId, seasonId):
     return teamAbbrMap
 
 def getScoreboardSoup(curl, cookieFile, leagueId, seasonId, thisWeek):
-    b = StringIO.StringIO()
+    b = io.BytesIO()
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
     curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/scoreboard?leagueId=%s&seasonId=%s&matchupPeriodId=%s" % (leagueId, seasonId, thisWeek))
     curl.setopt(pycurl.FOLLOWLOCATION, 1)
@@ -86,7 +86,7 @@ def getScoreboardSoup(curl, cookieFile, leagueId, seasonId, thisWeek):
     curl.perform()
 
     massage = [(re.compile('TEAM</td>'), lambda match: 'TEAM</th>')]
-    soup = BeautifulSoup(b.getvalue(), markupMassage=massage)
+    soup = BeautifulSoup(b.getvalue(), "lxml")
     return soup.findAll(id='scoreboardMatchups')
 
 
@@ -159,7 +159,7 @@ def determineStandings(records):
     return standings
 
 def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
-    print """
+    print("""
 <html>
 <head>
   <title>FFB %s - Week %s</title>
@@ -171,40 +171,40 @@ def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
   <h3>Power Rankings</h3>
     <table border="1">
       <tr><th>Rank</th><th>Team</th><th>AWP</th>
-""" % (seasonId, thisWeek, seasonId, thisWeek)
+""" % (seasonId, thisWeek, seasonId, thisWeek))
     rank = 1
     for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
         awp = ("%.3f" % row['awp'])[1:]
-        print """<tr><td>%d</td><td>%s (%s)</td><td>%s</td></tr>""" % (rank, row['team'], teamAbbrMap[row['team']], awp)
+        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td></tr>""" % (rank, row['team'], teamAbbrMap[row['team']], awp))
         rank += 1
-    print """
+    print("""
     </table>
 
-  <br/>"""
+  <br/>""")
 
 def printPowerMatrix(teamAbbrMap, standings, records, matchups):
-    print """
+    print("""
   <h3>Relative Power Matrix</h3>
   <table border="1">
     <tr>
-      <th>TEAM</th>"""
+      <th>TEAM</th>""")
 
     for team in sorted(teamAbbrMap.values()):
-        print """      <th>%s</th>""" % team
+        print("""      <th>%s</th>""" % team)
 
-    print """      <th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th>
+    print("""      <th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th>
     </tr>
-"""
+""")
 
     for row in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
-        print "<tr>"
-        print "\t<th>%s</th>" % teamAbbrMap[row['team']]
+        print("<tr>")
+        print("\t<th>%s</th>" % teamAbbrMap[row['team']])
         wins = records[row['team']]['wins']
         losses = records[row['team']]['losses']
         ties = records[row['team']]['ties']
         for opp in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
             if row['team'] == opp['team']:
-                print "\t<td>&nbsp;</td>"
+                print("\t<td>&nbsp;</td>")
             else:
                 css = ''
                 if matchups[row['team']] == opp['team']:
@@ -218,13 +218,13 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups):
                     css += 'loss'
                 else:
                     css += 'tie'
-                print "\t<td class=\"%s\">%d-%d-%d</td>" % (css, oppWins, oppLosses, oppTies)
+                print("\t<td class=\"%s\">%d-%d-%d</td>" % (css, oppWins, oppLosses, oppTies))
         awp = (wins + ties / 2.0) / (wins + losses + ties)
         awp = ("%.3f" % awp)[1:]
-        print "\t<td class=\"total\">%d-%d-%d (%s)</td>" % (wins, losses, ties, awp)
-        print "</tr>"
+        print("\t<td class=\"total\">%d-%d-%d (%s)</td>" % (wins, losses, ties, awp))
+        print("</tr>")
 
-    print """
+    print("""
 </table>
   <br>
   * <i><b>Aggregate Winning Percentage (AWP)</b> - A team's combined record against every other team for the week.</i>
@@ -232,10 +232,10 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups):
   <a href="../rankings">Other Weeks</a>
 </body>
 </html>
-"""
+""")
 
 def usage():
-    print """Usage: %s [-c <config_file>] [-w <week_number>] [-m]""" % sys.argv[0]
+    print("""Usage: %s [-c <config_file>] [-w <week_number>] [-m]""" % sys.argv[0])
 
 
 def main():
@@ -244,8 +244,8 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'c:w:mh')
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         usage()
         sys.exit(1)
     thisWeek = 0
@@ -259,8 +259,8 @@ def main():
         elif o == '-w':
             try:
                 thisWeek = int(a)
-            except TypeError, err:
-                print 'Argument to -w must be a number'
+            except TypeError as err:
+                print('Argument to -w must be a number')
                 usage()
                 sys.exit(1)
         elif o == '-m':
@@ -293,7 +293,7 @@ def main():
 
     if postMessageEnabled == True:
         subject = 'test'
-        (ret, fortune) = commands.getstatusoutput('fortune fortunes')
+        (ret, fortune) = subprocess.getstatusoutput('fortune fortunes')
         # RANKINGS URL HERE
         msg = "Here are the power rankings for week %s: [link]%s[/link]<br /><br />-- PowerBot" % (thisWeek, properties['rankingsUrl'])
         if ret == 0:

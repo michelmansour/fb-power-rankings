@@ -65,7 +65,8 @@ referred to as "it".
 
 ### Dependencies
 This part is so very important, and yet so far down the page. This program has a few
-critical dependencies.
+critical dependencies, which are specified in the `requirements.txt` file.
+Dependencies can be installed using *pip*: `pip install -r requirements.txt`
 
 Most critically, it only works with **Python 3**. However, the Python 2
 version can still be found in the `python2` branch.

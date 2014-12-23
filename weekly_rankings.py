@@ -85,10 +85,21 @@ def getScoreboardSoup(curl, cookieFile, leagueId, seasonId, thisWeek):
     curl.setopt(pycurl.COOKIEFILE, cookieFile)
     curl.perform()
 
-    massage = [(re.compile('TEAM</td>'), lambda match: 'TEAM</th>')]
     soup = BeautifulSoup(b.getvalue(), "lxml")
     return soup.findAll(id='scoreboardMatchups')
 
+def getStandingsSoup(curl, cookieFile, leagueId, seasonId):
+    b = io.BytesIO()
+    curl.setopt(pycurl.WRITEFUNCTION, b.write)
+    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/standings?leagueId=%s&seasonId=%s" % (leagueId, seasonId))
+    curl.setopt(pycurl.FOLLOWLOCATION, 1)
+    curl.setopt(pycurl.COOKIEFILE, cookieFile)
+    curl.perform()
+
+    soup = BeautifulSoup(b.getvalue(), "lxml")
+    return soup.find(id='statsTable')
+
+    
 
 def teamTotals(teamStats, categories, lowerBetterCategories):
     totals = []

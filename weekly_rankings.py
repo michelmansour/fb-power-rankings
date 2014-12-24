@@ -73,7 +73,7 @@ def getTeamAbbreviations(curl, cookieFile, leagueId, seasonId):
         if re.compile("[0-9]+").match(str(cells[0].contents[0])):
             abbr = cells[1].contents[0]
             teamName = cells[2].findAll('a')[0].contents[0];
-            teamAbbrMap[str(teamName)] = str(abbr)
+            teamAbbrMap[str(teamName.strip())] = str(abbr)
 
     return teamAbbrMap
 
@@ -99,14 +99,20 @@ def getStandingsSoup(curl, cookieFile, leagueId, seasonId):
     soup = BeautifulSoup(b.getvalue(), "lxml")
     return soup.find(id='statsTable')
 
-    
+def cumulativeRankings(standingsSoup, lowerBetterCategories):
+    categories = [x.find('a').contents[0] for x in standingsSoup.find_all('tr', class_='tableSubHead')[1].find_all('td', style='width:50px;')]
+    statRows = standingsSoup.find_all('tr', class_='tableBody sortableRow')
+    totals = {}
+    for team in statRows:
+        teamName = team.find('td', class_='sortableTeamName').find('a').contents[0].strip()
+        totals[teamName] = teamTotals(team.find_all('td', id=re.compile('tmTotalStat*')), categories, lowerBetterCategories)
+    return totals
 
 def teamTotals(teamStats, categories, lowerBetterCategories):
     totals = []
-    teamTotals = teamStats.findAll('td', id=re.compile('^total_(\d+)_*'))
     lowerBetterCats = set(lowerBetterCategories.split(','))
 
-    for t in zip(teamTotals, categories):
+    for t in zip(teamStats, categories):
         total = float(t[0].contents[0])
         if t[1] in lowerBetterCats:
             total *= -1
@@ -127,10 +133,10 @@ def matchupTotals(scoreSoup, lowerBetterCategories):
             team1Stats = catRow.nextSibling
             team2Stats = team1Stats.nextSibling
             t1Name = str(team1Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t1Name] = teamTotals(team1Stats, categories, lowerBetterCategories)
+            totals[t1Name] = teamTotals(team1Stats.findAll('td', id=re.compile('^total_(\d+)_*')), categories, lowerBetterCategories)
 
             t2Name = str(team2Stats.find('td', 'teamName').find('a').contents[0]).strip()
-            totals[t2Name] = teamTotals(team2Stats, categories, lowerBetterCategories)
+            totals[t2Name] = teamTotals(team2Stats.findAll('td', id=re.compile('^total_(\d+)_*')), categories, lowerBetterCategories)
 
             pairings[t1Name] = t2Name
             pairings[t2Name] = t1Name
@@ -193,7 +199,7 @@ def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
 
   <br/>""")
 
-def printPowerMatrix(teamAbbrMap, standings, records, matchups):
+def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
     print("""
   <h3>Relative Power Matrix</h3>
   <table border="1">
@@ -218,7 +224,7 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups):
                 print("\t<td>&nbsp;</td>")
             else:
                 css = ''
-                if matchups[row['team']] == opp['team']:
+                if not matchups == None and matchups[row['team']] == opp['team']:
                     css = 'matchup '
                 oppWins = records[row['team']][opp['team']]['wins']
                 oppLosses = records[row['team']][opp['team']]['losses']
@@ -246,45 +252,67 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups):
 """)
 
 def usage():
-    print("""Usage: %s [-c <config_file>] [-w <week_number>] [-m]""" % sys.argv[0])
-
+    print(
+"""Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
+             
+    -h, --help                   Print this usage message and quit
+    -c <file>, --config=<file>   Configuration file
+    -w <week>, --week=<week>     Weekly power rankings for <week>
+    -s, --season                 Season power rankings
+    -m, --post-message           Post a message""" % sys.argv[0])
 
 def main():
     path = os.path.dirname(sys.argv[0])
     configFile = 'pr.conf'
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:w:mh')
+        opts, args = getopt.getopt(sys.argv[1:], 'c:w:smh', ['config=', 'week=', 'season', 'post-message', 'help'])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
         sys.exit(1)
     thisWeek = 0
     postMessageEnabled = False
+    doWeek = False
+    doSeason = False
     for o, a in opts:
-        if o == '-h':
+        if o in ('-h', '--help'):
             usage()
             sys.exit(0)
-        elif o == '-c':
+        elif o in ('-c', '--config'):
             configFile = a
-        elif o == '-w':
-            try:
-                thisWeek = int(a)
-            except TypeError as err:
-                print('Argument to -w must be a number')
+        elif o in ('-w', '--week'):
+            if doSeason:
                 usage()
                 sys.exit(1)
+            else:
+                try:
+                    thisWeek = int(a)
+                    doWeek = True
+                except TypeError as err:
+                    print('Argument to -w must be a number')
+                    usage()
+                    sys.exit(1)
+        elif o in ('-s', '--season'):
+            if doWeek:
+                usage()
+                sys.exit(1)
+            else:
+                doSeason = True
         elif o == '-m':
             postMessageEnabled = True
         else:
             usage()
             sys.exit(1)
 
+    if not doWeek and not doSeason:
+        doWeek = True
+            
     if not path == '':
         configFile = path + os.pathsep + configFile
     properties = readConfig(configFile)
 
-    if thisWeek <= 0:
+    if doWeek and thisWeek <= 0:
         openingDay = datetime.date(int(properties['startYear']), int(properties['startMonth']), int(properties['startDate']))
         openingWeek = openingDay.isocalendar()[1]
         thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
@@ -294,8 +322,14 @@ def main():
     loginESPN(curl, cookieFile, properties['leagueId'], properties['username'], properties['password'])
 
     teamAbbrMap = getTeamAbbreviations(curl, cookieFile, properties['leagueId'], properties['seasonId'])
-    scores = getScoreboardSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'], thisWeek)
-    (totals, matchups) = matchupTotals(scores, properties['lowerBetter'])
+    if doWeek:
+        scores = getScoreboardSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'], thisWeek)
+        (totals, matchups) = matchupTotals(scores, properties['lowerBetter'])
+    else:
+        scores = getStandingsSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'])
+        totals = cumulativeRankings(scores, properties['lowerBetter'])
+        matchups = None
+                                    
     records = calculateRecords(totals)
     standings = determineStandings(records)
 

@@ -47,16 +47,24 @@ day of competition for the season to get cumulative power rankings.
 
 ### Running the Script
     $ python weekly_rankings -h
-    Usage: weekly_rankings.py [-c <config_file>] [-w <week_number>] [-m]
+    Usage: weekly_rankings.py [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
 
-If `-c` is provided, then `<config_file>` is the configuration file to use. By default,
+         -h, --help                   Print this usage message and quit
+         -c <file>, --config=<file>   Configuration file
+         -w <week>, --week=<week>     Weekly power rankings for <week>
+         -s, --season                 Season power rankings
+         -m, --post-message           Post a message
+
+If `-c` or `--config` is provided, then `<file>` is the configuration file to use. By default,
 the script looks for the configuration options in a file called `pr.conf`
 
-If `-w` is provided, then the rankings for `<week_number>` are calculated.
-Otherwise, cumulative rankings, starting from __startYear__-__startMonth__-__startDate__,
-are calculated.
+If `-w` or `--week` is provided, then the rankings for `<week>` are calculated.
+Otherwise, rankings for the most recent week are calculated.
 
-If `-m` is specified, then a message will be posted to your league's message board by
+If `-s` or `--season` is provided, then cumulative rankings for the entire season
+to date are calculated.
+
+If `-m` or `--post-message` is specified, then a message will be posted to your league's message board by
 your user on behalf of PowerBot(tm), a sassy robot who wouldn't mind seeing the
 extinction of humans. It will pull quotes from the `fortune` command if available, and
 it will tell your league mates where to find the rankings, via the __rankingsUrl__

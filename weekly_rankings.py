@@ -77,6 +77,68 @@ def getTeamAbbreviations(curl, cookieFile, leagueId, seasonId):
 
     return teamAbbrMap
 
+def extractMatchupFromSchedule(matchupSoup, seasonId):
+    tds = matchupSoup.find_all('td')
+    # first get the date
+    matchupDate = tds[0].contents[0]
+    startIndex = matchupDate.find('(')
+    endIndex = matchupDate.find(')')
+    dateRange = matchupDate[startIndex + 1:endIndex]
+    # if the start and end of the matchup are in the same month
+    # then the date looks like (MON x - y)
+    # but if they are in different months
+    # then the date looks like (MON x - MON y)
+    if re.compile('\w{3}\s\d+ - \w{3}\s\d+').match(dateRange):
+        endDateStr = dateRange.split('-')[1].strip()
+    else:
+        endDateStr = dateRange[:3] + ' ' + dateRange[-2:].strip()
+    endDate = datetime.datetime.strptime(seasonId + ' ' + endDateStr, '%Y %b %d').date()
+
+    # then the opponent
+    opponent = tds[3].find('a').contents[0]
+
+    return (endDate, opponent)
+
+def teamScheduleToDate(curl, cookieFile, leagueId, seasonId, teamId):
+    b = io.BytesIO()
+    curl.setopt(pycurl.WRITEFUNCTION, b.write)
+    curl.setopt(pycurl.FOLLOWLOCATION, 1)
+    curl.setopt(pycurl.COOKIEFILE, cookieFile)
+    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/schedule?leagueId=%s&seasonId=%s&teamId=%s" % (leagueId, seasonId, teamId))
+    curl.perform()
+    soup = BeautifulSoup(b.getvalue(), "lxml")
+    # team name appears as <h1>Team Name Schedule</h1>
+    teamName = soup.find_all('h1')[1].contents[0][:-1 * len('Schedule ')]
+    schedSoup = soup.find_all('tr')
+    matchupRows = [tr for tr in schedSoup[3:] if len(tr.find('td').contents) > 0 and str(tr.find('td').contents[0]).startswith('Matchup')]
+    return (teamName, matchupRows)
+
+def getTeamIds(curl, cookieFile, leagueId, seasonId):
+    b = io.BytesIO()
+    curl.setopt(pycurl.URL, "http://games.espn.go.com/flb/schedule?leagueId=%s&seasonId=%s" % (leagueId, seasonId))
+    curl.setopt(pycurl.WRITEFUNCTION, b.write)
+    curl.setopt(pycurl.COOKIEFILE, cookieFile)
+    curl.perform()
+    soup = BeautifulSoup(b.getvalue(), "lxml")
+    teamOptions = soup.find('div', class_='bodyCopy').find('select').find_all('option')
+    # remove the first option, which is for "All" teams
+    return [option.attrs['value'] for option in teamOptions][1:]
+
+def allSchedulesToDate(curl, cookieFile, leagueId, seasonId):
+    schedules = {}
+    for teamId in getTeamIds(curl, cookieFile, leagueId, seasonId):
+        opponents = []
+        (teamName, teamMatchupRows) = teamScheduleToDate(curl, cookieFile, leagueId, seasonId, teamId)
+        for matchupRow in teamMatchupRows:
+            (endDate, opponent) = extractMatchupFromSchedule(matchupRow, seasonId)
+            if datetime.date.today() > endDate:
+                opponents.append(opponent)
+            else:
+                break
+        schedules[teamName] = opponents
+    return schedules
+
+
 def getScoreboardSoup(curl, cookieFile, leagueId, seasonId, thisWeek):
     b = io.BytesIO()
     curl.setopt(pycurl.WRITEFUNCTION, b.write)
@@ -174,6 +236,10 @@ def determineStandings(records):
         standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
         standings.append(standingRow)
     return standings
+
+def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories):
+    # TODO
+
 
 def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
     print("""

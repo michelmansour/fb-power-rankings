@@ -17,7 +17,8 @@ by virtue of playing the league doormat. You'll get them next week.
 ### Output
 The script produces an HTML page containing team standings according to the AWP
 records, and a Relative Power Matrix(tm), showing how every team would have fared against
-every other team. Sometimes I manually edit the standings to add a witty comment
+every other team. The standings also list each team's cumulative opponent AWP to date.
+Sometimes I manually edit the standings to add a witty comment
 about how each team performed, much like professional power rankings do (but
 funnier). The output is further controlled by a stylesheet, which you are free
 and encouraged to modify.

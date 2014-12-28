@@ -95,7 +95,7 @@ def extractMatchupFromSchedule(matchupSoup, seasonId):
     endDate = datetime.datetime.strptime(seasonId + ' ' + endDateStr, '%Y %b %d').date()
 
     # then the opponent
-    opponent = tds[3].find('a').contents[0]
+    opponent = tds[3].find('a').contents[0].strip()
 
     return (endDate, opponent)
 
@@ -108,7 +108,7 @@ def teamScheduleToDate(curl, cookieFile, leagueId, seasonId, teamId):
     curl.perform()
     soup = BeautifulSoup(b.getvalue(), "lxml")
     # team name appears as <h1>Team Name Schedule</h1>
-    teamName = soup.find_all('h1')[1].contents[0][:-1 * len('Schedule ')]
+    teamName = soup.find_all('h1')[1].contents[0][:-1 * len('Schedule ')].strip()
     schedSoup = soup.find_all('tr')
     matchupRows = [tr for tr in schedSoup[3:] if len(tr.find('td').contents) > 0 and str(tr.find('td').contents[0]).startswith('Matchup')]
     return (teamName, matchupRows)
@@ -129,7 +129,7 @@ def allSchedulesToDate(curl, cookieFile, leagueId, seasonId):
     for teamId in getTeamIds(curl, cookieFile, leagueId, seasonId):
         opponents = []
         (teamName, teamMatchupRows) = teamScheduleToDate(curl, cookieFile, leagueId, seasonId, teamId)
-        for matchupRow in teamMatchupRows:
+        for matchupRow in teamMatchupRows[:3]:
             (endDate, opponent) = extractMatchupFromSchedule(matchupRow, seasonId)
             if datetime.date.today() > endDate:
                 opponents.append(opponent)
@@ -161,7 +161,7 @@ def getStandingsSoup(curl, cookieFile, leagueId, seasonId):
     soup = BeautifulSoup(b.getvalue(), "lxml")
     return soup.find(id='statsTable')
 
-def cumulativeRankings(standingsSoup, lowerBetterCategories):
+def cumulativeTotals(standingsSoup, lowerBetterCategories):
     categories = [x.find('a').contents[0] for x in standingsSoup.find_all('tr', class_='tableSubHead')[1].find_all('td', style='width:50px;')]
     statRows = standingsSoup.find_all('tr', class_='tableBody sortableRow')
     totals = {}
@@ -224,6 +224,9 @@ def calculateRecords(totals):
                 records[team]['ties'] += ties
     return records
 
+def awp(wins, losses, ties):
+    return (wins + ties / 2.0) / (wins + losses + ties)
+
 def determineStandings(records):
     standings = []
     for team in sorted(records.keys()):
@@ -231,17 +234,27 @@ def determineStandings(records):
         losses = records[team]['losses']
         ties = records[team]['ties']
         standingRow = {}
-        standingRow['awp'] = (wins + ties / 2.0) / (wins + losses + ties)
+        standingRow['awp'] = awp(wins, losses, ties)
         standingRow['team'] = team
         standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
         standings.append(standingRow)
     return standings
 
-def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories):
-    # TODO
+def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories, schedule):
+    records = calculateRecords(cumulativeTotals(standingsSoup, lowerBetterCategories))
+    oppAwps = {}
+    for team in schedule.keys():
+        oppWins = oppLosses = oppTies = 0
+        for opponent in schedule[team]:
+            oppWins += records[opponent]['wins']
+            oppLosses += records[opponent]['losses']
+            oppTies += records[opponent]['ties']
+        oppAwps[team] = awp(oppWins, oppLosses, oppTies)
 
+    return oppAwps
+    
 
-def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
+def printStandings(teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
     print("""
 <html>
 <head>
@@ -253,12 +266,13 @@ def printStandings(teamAbbrMap, standings, seasonId, thisWeek):
 
   <h3>Power Rankings</h3>
     <table border="1">
-      <tr><th>Rank</th><th>Team</th><th>AWP</th>
+      <tr><th>Rank</th><th>Team</th><th>AWP</th><th>Opponent AWP</th></tr>
 """ % (seasonId, thisWeek, seasonId, thisWeek))
     rank = 1
     for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
         awp = ("%.3f" % row['awp'])[1:]
-        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td></tr>""" % (rank, row['team'], teamAbbrMap[row['team']], awp))
+        oppAwp = ("%.3f" % oppAwps[row['team']])[1:]
+        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" % (rank, row['team'], teamAbbrMap[row['team']], awp, oppAwp))
         rank += 1
     print("""
     </table>
@@ -388,18 +402,20 @@ def main():
     loginESPN(curl, cookieFile, properties['leagueId'], properties['username'], properties['password'])
 
     teamAbbrMap = getTeamAbbreviations(curl, cookieFile, properties['leagueId'], properties['seasonId'])
+    standingsSoup = getStandingsSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'])
     if doWeek:
         scores = getScoreboardSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'], thisWeek)
         (totals, matchups) = matchupTotals(scores, properties['lowerBetter'])
     else:
-        scores = getStandingsSoup(curl, cookieFile, properties['leagueId'], properties['seasonId'])
-        totals = cumulativeRankings(scores, properties['lowerBetter'])
+        totals = cumulativeTotals(standingSoup, properties['lowerBetter'])
         matchups = None
                                     
     records = calculateRecords(totals)
     standings = determineStandings(records)
+    schedules = allSchedulesToDate(curl, properties['cookieFile'], properties['leagueId'], properties['seasonId'])
+    oppAwps = computeStrengthOfSchedule(standingsSoup, properties['lowerBetter'], schedules)
 
-    printStandings(teamAbbrMap, standings, properties['seasonId'], thisWeek)
+    printStandings(teamAbbrMap, standings, oppAwps, properties['seasonId'], thisWeek)
     printPowerMatrix(teamAbbrMap, standings, records, matchups)
 
     if postMessageEnabled == True:

@@ -33,6 +33,7 @@ from a configuration file. The configuration parameters are:
 * __username__ - The user you will log in to ESPN with
 * __password__ - The above user's password
 * __cookieFile__ - A file to store the ESPN login cookie in
+* __leagueName__ - Name of the league to show in the output
 * __startYear__ - For cumulative power rankings, the year to start in
 * __startMonth__ - Start month for cumulative rankings
 * __startDate__ - Start day of month for cumulative rankings

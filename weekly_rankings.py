@@ -254,20 +254,20 @@ def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories, schedule):
     return oppAwps
     
 
-def printStandings(teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
+def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
     print("""
 <html>
 <head>
-  <title>FFB %s - Week %s</title>
+  <title>%s %s - Week %s</title>
   <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-  <h2>Final Fantasy Baseball %s - Week %s Power Rankings</h2>
+  <h2>%s %s - Week %s Power Rankings</h2>
 
   <h3>Power Rankings</h3>
     <table border="1">
       <tr><th>Rank</th><th>Team</th><th>AWP</th><th>Opponent AWP</th></tr>
-""" % (seasonId, thisWeek, seasonId, thisWeek))
+""" % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
     rank = 1
     for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
         awp = ("%.3f" % row['awp'])[1:]
@@ -415,7 +415,7 @@ def main():
     schedules = allSchedulesToDate(curl, properties['cookieFile'], properties['leagueId'], properties['seasonId'])
     oppAwps = computeStrengthOfSchedule(standingsSoup, properties['lowerBetter'], schedules)
 
-    printStandings(teamAbbrMap, standings, oppAwps, properties['seasonId'], thisWeek)
+    printStandings(properties['leagueName'], teamAbbrMap, standings, oppAwps, properties['seasonId'], thisWeek)
     printPowerMatrix(teamAbbrMap, standings, records, matchups)
 
     if postMessageEnabled == True:

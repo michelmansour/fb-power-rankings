@@ -48,8 +48,8 @@ __startYear__, __startMonth__, and __startDate__ should correspond to the first
 day of competition for the season to get cumulative power rankings.
 
 ### Running the Script
-    $ python weekly_rankings -h
-    Usage: weekly_rankings.py [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
+    $ python rankings_cli.py -h
+    Usage: rankings_cli.py [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
 
          -h, --help                   Print this usage message and quit
          -c <file>, --config=<file>   Configuration file

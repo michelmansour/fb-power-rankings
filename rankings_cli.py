@@ -19,7 +19,7 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import weekly_rankings
+import power_rankings
 import getopt
 import datetime
 import sys, os, subprocess
@@ -180,7 +180,7 @@ def main():
         thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
 
     cookieFile = properties['cookieFile']
-    rankings = weekly_rankings.PowerRankings(properties['cookieFile'], properties['leagueId'], properties['seasonId'], properties['lowerBetter'])
+    rankings = power_rankings.PowerRankings(properties['cookieFile'], properties['leagueId'], properties['seasonId'], properties['lowerBetter'])
     rankings.loginESPN(properties['username'], properties['password'])
 
     teamAbbrMap = rankings.getTeamAbbreviations()

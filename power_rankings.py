@@ -34,7 +34,7 @@ class PowerRankings:
         self.curl = pycurl.Curl()
         
     def loginESPN(self, username, password):
-        fp = open('/tmp/rankings.txt', 'wb')
+        fp = open('/dev/null', 'wb')
 
         self.curl.setopt(pycurl.WRITEDATA, fp)
         self.curl.setopt(pycurl.URL, "https://r.espn.go.com/espn/fantasy/login")

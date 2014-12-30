@@ -238,7 +238,13 @@ def determineStandings(records):
         standingRow['team'] = team
         standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
         standings.append(standingRow)
-    return standings
+
+    rank = 1
+    for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
+        row['rank'] = rank
+        rank += 1
+        
+    return sorted(standings, key=lambda x: x['rank'])
 
 def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories, schedule):
     records = calculateRecords(cumulativeTotals(standingsSoup, lowerBetterCategories))
@@ -252,7 +258,6 @@ def computeStrengthOfSchedule(standingsSoup, lowerBetterCategories, schedule):
         oppAwps[team] = awp(oppWins, oppLosses, oppTies)
 
     return oppAwps
-    
 
 def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
     print("""
@@ -268,12 +273,10 @@ def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWe
     <table border="1">
       <tr><th>Rank</th><th>Team</th><th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th><th><acronym title="Opponent Aggregate Winning Percentage">OAWP**</acronym></th></tr>
 """ % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
-    rank = 1
-    for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
+    for row in standings:
         awp = ("%.3f" % row['awp'])[1:]
         oppAwp = ("%.3f" % oppAwps[row['team']])[1:]
-        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" % (rank, row['team'], teamAbbrMap[row['team']], awp, oppAwp))
-        rank += 1
+        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" % (row['rank'], row['team'], teamAbbrMap[row['team']], awp, oppAwp))
     print("""
     </table>
 

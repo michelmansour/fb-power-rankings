@@ -20,6 +20,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import pycurl
+from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 import io
 import re
@@ -41,7 +42,20 @@ class PowerRankings:
         self.curl.setopt(pycurl.FOLLOWLOCATION, 1)
         self.curl.setopt(pycurl.COOKIEFILE, self.cookieFile)
         self.curl.setopt(pycurl.POST, 1)
-        self.curl.setopt(pycurl.POSTFIELDS, "failedAttempts=2&SUBMIT=1&failedLocation=http://games.espn.go.com/flb/signin?redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fstandings%%3FleagueId%%3D%s%%26e=1%%26aff_code=espn_fantgames&appRedirect=http://games.espn.go.com/flb/standings?leagueId=%s&cookieDomain=.go.com&multipleDomains=true&username=%s&password=%s&submit=Sign+In" % (self.leagueId, self.leagueId, username, password))
+        postData = {
+            'SUBMIT': '1',
+            'aff_code': 'espn_fantgames',
+            'appRedirect': 'http://games.espn.go.com/flb/leagueoffice?leagueId=%s&seasonId=%s' % (self.leagueId, self.seasonId),
+            'cookieDomain': '.go.com',
+            'failedLocation': 'http://games.espn.go.com/flb/signin?redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fleagueoffice%%3FleagueId%%3D%s%%26seasonId%%3D%s&e=1' % (self.leagueId, self.seasonId),
+            'multipleDomains': 'true',
+            'password': password,
+            'submit': 'Sign In',
+            'username': username,
+            'failedAttempts': '2'
+        }
+        postFields = urlencode(postData)
+        self.curl.setopt(pycurl.POSTFIELDS, postFields)
         self.curl.perform()
 
     def postMessage(self, thisWeek, message, subject=''):

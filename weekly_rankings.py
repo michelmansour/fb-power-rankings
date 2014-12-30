@@ -266,7 +266,7 @@ def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWe
 
   <h3>Power Rankings</h3>
     <table border="1">
-      <tr><th>Rank</th><th>Team</th><th>AWP</th><th>Opponent AWP</th></tr>
+      <tr><th>Rank</th><th>Team</th><th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th><th><acronym title="Opponent Aggregate Winning Percentage">OAWP**</acronym></th></tr>
 """ % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
     rank = 1
     for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
@@ -282,12 +282,14 @@ def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWe
 def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
     print("""
   <h3>Relative Power Matrix</h3>
+  <i>Actual matchup in <b>bold</b>.
+  <br>
   <table border="1">
     <tr>
       <th>TEAM</th>""")
 
-    for team in sorted(teamAbbrMap.values()):
-        print("""      <th>%s</th>""" % team)
+    for team in sorted(teamAbbrMap, key=teamAbbrMap.get):
+        print("""      <th><acronym title="%s">%s</acronym></th>""" % (team, teamAbbrMap[team]))
 
     print("""      <th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th>
     </tr>
@@ -295,7 +297,7 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
 
     for row in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
         print("<tr>")
-        print("\t<th>%s</th>" % teamAbbrMap[row['team']])
+        print('\t<th><acronym title="%s">%s</acronym></th>' % (row['team'], teamAbbrMap[row['team']]))
         wins = records[row['team']]['wins']
         losses = records[row['team']]['losses']
         ties = records[row['team']]['ties']
@@ -325,6 +327,8 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
 </table>
   <br>
   * <i><b>Aggregate Winning Percentage (AWP)</b> - A team's combined record against every other team for the week.</i>
+  <br>
+  ** <i><b>Opponent Aggregate Winning Percentage (OAWP)</b> - Average AWP of all opponents to date.</i>
   <br /><br />
   <a href="../rankings">Other Weeks</a>
 </body>
@@ -339,7 +343,7 @@ def usage():
     -c <file>, --config=<file>   Configuration file
     -w <week>, --week=<week>     Weekly power rankings for <week>
     -s, --season                 Season power rankings
-    -m, --post-message           Post a message""" % sys.argv[0])
+    -m, --post-message           Post a message""" % sys.argv[0], file=sys.stderr)
 
 def main():
     path = os.path.dirname(sys.argv[0])
@@ -369,8 +373,8 @@ def main():
                 try:
                     thisWeek = int(a)
                     doWeek = True
-                except TypeError as err:
-                    print('Argument to -w must be a number')
+                except (TypeError, ValueError):
+                    print('Error: Argument to -w must be a number', file=sys.stderr)
                     usage()
                     sys.exit(1)
         elif o in ('-s', '--season'):

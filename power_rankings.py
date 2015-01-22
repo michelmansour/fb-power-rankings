@@ -24,6 +24,7 @@ from bs4 import BeautifulSoup
 import re
 import datetime
 
+
 class PowerRankings:
     def __init__(self, leagueId, seasonId, lowerBetterCategories):
         self.leagueId = leagueId
@@ -73,7 +74,7 @@ class PowerRankings:
             cells = row.findAll("td")
             if re.compile("[0-9]+").match(str(cells[0].contents[0])):
                 abbr = cells[1].contents[0]
-                teamName = cells[2].findAll('a')[0].contents[0];
+                teamName = cells[2].findAll('a')[0].contents[0]
                 teamAbbrMap[str(teamName.strip())] = str(abbr)
 
         return teamAbbrMap

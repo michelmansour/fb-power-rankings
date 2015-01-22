@@ -26,6 +26,7 @@ import sys
 import os
 import subprocess
 
+
 def readConfig(configFile):
     props = {}
     conf = open(configFile, 'r')
@@ -35,6 +36,7 @@ def readConfig(configFile):
             props[prop[0]] = prop[1]
 
     return props
+
 
 def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
     print("""
@@ -58,6 +60,7 @@ def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWe
     </table>
 
   <br/>""")
+
 
 def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
     print("""
@@ -115,6 +118,7 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
 </html>
 """)
 
+
 def usage():
     print(
 """Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
@@ -124,6 +128,7 @@ def usage():
     -w <week>, --week=<week>     Weekly power rankings for <week>
     -s, --season                 Season power rankings
     -m, --post-message           Post a message""" % sys.argv[0], file=sys.stderr)
+
 
 def main():
     path = os.path.dirname(sys.argv[0])

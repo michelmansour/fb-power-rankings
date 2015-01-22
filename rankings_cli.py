@@ -22,7 +22,9 @@
 import power_rankings
 import getopt
 import datetime
-import sys, os, subprocess
+import sys
+import os
+import subprocess
 
 def readConfig(configFile):
     props = {}
@@ -116,7 +118,7 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
 def usage():
     print(
 """Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
-             
+
     -h, --help                   Print this usage message and quit
     -c <file>, --config=<file>   Configuration file
     -w <week>, --week=<week>     Weekly power rankings for <week>
@@ -169,7 +171,7 @@ def main():
 
     if not doWeek and not doSeason:
         doWeek = True
-            
+
     if not path == '':
         configFile = path + os.pathsep + configFile
     properties = readConfig(configFile)
@@ -179,8 +181,7 @@ def main():
         openingWeek = openingDay.isocalendar()[1]
         thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
 
-    cookieFile = properties['cookieFile']
-    rankings = power_rankings.PowerRankings(properties['cookieFile'], properties['leagueId'], properties['seasonId'], properties['lowerBetter'])
+    rankings = power_rankings.PowerRankings(properties['leagueId'], properties['seasonId'], properties['lowerBetter'])
     rankings.loginESPN(properties['username'], properties['password'])
 
     teamAbbrMap = rankings.getTeamAbbreviations()
@@ -191,7 +192,7 @@ def main():
     else:
         totals = rankings.cumulativeTotals(standingSoup)
         matchups = None
-                                    
+
     records = rankings.calculateRecords(totals)
     standings = rankings.determineStandings(records)
     schedules = rankings.allSchedulesToDate()
@@ -200,13 +201,16 @@ def main():
     printStandings(properties['leagueName'], teamAbbrMap, standings, oppAwps, properties['seasonId'], thisWeek)
     printPowerMatrix(teamAbbrMap, standings, records, matchups)
 
-    if postMessageEnabled == True:
+    if postMessageEnabled:
         subject = 'test'
         (ret, fortune) = subprocess.getstatusoutput('fortune fortunes')
         # RANKINGS URL HERE
-        msg = "Here are the power rankings for week %s: [link]%s[/link]<br /><br />-- PowerBot" % (thisWeek, properties['rankingsUrl'])
+        msg = """Here are the power rankings for week %s: [link]%s[/link]
+
+-- PowerBot""" % (thisWeek, properties['rankingsUrl'])
         if ret == 0:
-            msg += "<br />[i]%s[/i]" % fortune
+            msg += """
+[i]%s[/i]""" % fortune
         else:
             sys.stderr.write('fortune error')
         rankings.postMessage(thisWeek, msg)

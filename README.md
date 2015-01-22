@@ -15,7 +15,7 @@ in the league, while the team below them vaulted over them into playoff position
 by virtue of playing the league doormat. You'll get them next week.
 
 ### Output
-The script produces an HTML page containing team standings according to the AWP
+The script produces an HTML document containing team standings according to the AWP
 records, and a Relative Power Matrix(tm), showing how every team would have fared against
 every other team. The standings also list each team's cumulative opponent AWP to date.
 Sometimes I manually edit the standings to add a witty comment
@@ -32,7 +32,6 @@ from a configuration file. The configuration parameters are:
 * __seasonId__ - Another URL paramemter, for the season; it's just the year
 * __username__ - The user you will log in to ESPN with
 * __password__ - The above user's password
-* __cookieFile__ - A file to store the ESPN login cookie in
 * __leagueName__ - Name of the league to show in the output
 * __startYear__ - For cumulative power rankings, the year to start in
 * __startMonth__ - Start month for cumulative rankings
@@ -81,10 +80,9 @@ Dependencies can be installed using *pip*: `pip install -r requirements.txt`
 Most critically, it only works with **Python 3**. However, the Python 2
 version can still be found in the `python2` branch.
 
-Second most critically, it depends on [PycURL][1]. Which means it's probably
-easiest to run this thing on a *NIX system.
+Second most critically, it depends on [Requests][1] to perform the HTTP requests.
 
-[1]: http://pycurl.sourceforge.net/
+[1]:http://docs.python-requests.org/en/latest/
 
 Last most critically, it depends on the venerable [Beautiful Soup][2] library.
 Additionally, it uses [lxml][3] as Beautiful Soup's underlying HTML parser.

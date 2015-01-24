@@ -38,8 +38,9 @@ def readConfig(configFile):
     return props
 
 
-def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWeek):
-    print("""
+def printStandings(leagueName, teamAbbrMap, standings,
+                   oppAwps, seasonId, thisWeek):
+    print("""\
 <html>
 <head>
   <title>%s %s - Week %s</title>
@@ -50,12 +51,24 @@ def printStandings(leagueName, teamAbbrMap, standings, oppAwps, seasonId, thisWe
 
   <h3>Power Rankings</h3>
     <table border="1">
-      <tr><th>Rank</th><th>Team</th><th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th><th><acronym title="Opponent Aggregate Winning Percentage">OAWP**</acronym></th></tr>
+      <tr>
+        <th>Rank</th>
+        <th>Team</th>
+        <th>
+          <acronym title="Aggregate Winning Percentage">AWP*</acronym>
+        </th>
+        <th>
+          <acronym title="Opponent Aggregate Winning Percentage">OAWP**\
+</acronym>
+        </th>
+      </tr>
 """ % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
     for row in standings:
-        awp = ("%.3f" % row['awp'])[1:]
-        oppAwp = ("%.3f" % oppAwps[row['team']])[1:]
-        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" % (row['rank'], row['team'], teamAbbrMap[row['team']], awp, oppAwp))
+        awp = ('%.3f' % row['awp'])[1:]
+        oppAwp = ('%.3f' % oppAwps[row['team']])[1:]
+        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" %
+              (row['rank'], row['team'], teamAbbrMap[row['team']],
+               awp, oppAwp))
     print("""
     </table>
 
@@ -72,21 +85,24 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
       <th>TEAM</th>""")
 
     for team in sorted(teamAbbrMap, key=teamAbbrMap.get):
-        print("""      <th><acronym title="%s">%s</acronym></th>""" % (team, teamAbbrMap[team]))
+        print("""      <th><acronym title="%s">%s</acronym></th>""" %
+              (team, teamAbbrMap[team]))
 
-    print("""      <th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th>
+    print("""      <th><acronym title="Aggregate Winning Percentage">AWP*\
+</acronym></th>
     </tr>
 """)
 
     for row in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
-        print("<tr>")
-        print('\t<th><acronym title="%s">%s</acronym></th>' % (row['team'], teamAbbrMap[row['team']]))
+        print('<tr>')
+        print('\t<th><acronym title="%s">%s</acronym></th>' %
+              (row['team'], teamAbbrMap[row['team']]))
         wins = records[row['team']]['wins']
         losses = records[row['team']]['losses']
         ties = records[row['team']]['ties']
         for opp in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
             if row['team'] == opp['team']:
-                print("\t<td>&nbsp;</td>")
+                print('\t<td>&nbsp;</td>')
             else:
                 css = ''
                 if not matchups == None and matchups[row['team']] == opp['team']:
@@ -100,18 +116,22 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
                     css += 'loss'
                 else:
                     css += 'tie'
-                print("\t<td class=\"%s\">%d-%d-%d</td>" % (css, oppWins, oppLosses, oppTies))
+                print('\t<td class="%s">%d-%d-%d</td>' %
+                      (css, oppWins, oppLosses, oppTies))
         awp = (wins + ties / 2.0) / (wins + losses + ties)
-        awp = ("%.3f" % awp)[1:]
-        print("\t<td class=\"total\">%d-%d-%d (%s)</td>" % (wins, losses, ties, awp))
-        print("</tr>")
+        awp = ('%.3f' % awp)[1:]
+        print('\t<td class="total">%d-%d-%d (%s)</td>' %
+              (wins, losses, ties, awp))
+        print('</tr>')
 
-    print("""
+    print("""\
 </table>
   <br>
-  * <i><b>Aggregate Winning Percentage (AWP)</b> - A team's combined record against every other team for the week.</i>
+  * <i><b>Aggregate Winning Percentage (AWP)</b> - A team's combined record \
+against every other team for the week.</i>
   <br>
-  ** <i><b>Opponent Aggregate Winning Percentage (OAWP)</b> - Average AWP of all opponents to date.</i>
+  ** <i><b>Opponent Aggregate Winning Percentage (OAWP)</b> - Average AWP of \
+all opponents to date.</i>
   <br /><br />
   <a href="../rankings">Other Weeks</a>
 </body>
@@ -120,14 +140,16 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
 
 
 def usage():
-    print(
-"""Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s | --season] [-m | --post-message] [-h | --help]
+    print("""\
+Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s |\
+ --season] [-m | --post-message] [-h | --help]
 
     -h, --help                   Print this usage message and quit
     -c <file>, --config=<file>   Configuration file
     -w <week>, --week=<week>     Weekly power rankings for <week>
     -s, --season                 Season power rankings
-    -m, --post-message           Post a message""" % sys.argv[0], file=sys.stderr)
+    -m, --post-message           Post a message""" %
+          sys.argv[0], file=sys.stderr)
 
 
 def main():
@@ -135,7 +157,9 @@ def main():
     configFile = 'pr.conf'
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:w:smh', ['config=', 'week=', 'season', 'post-message', 'help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'c:w:smh',
+                                   ['config=', 'week=', 'season',
+                                    'post-message', 'help'])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -159,7 +183,8 @@ def main():
                     thisWeek = int(a)
                     doWeek = True
                 except (TypeError, ValueError):
-                    print('Error: Argument to -w must be a number', file=sys.stderr)
+                    print('Error: Argument to -w must be a number',
+                          file=sys.stderr)
                     usage()
                     sys.exit(1)
         elif o in ('-s', '--season'):
@@ -182,11 +207,15 @@ def main():
     properties = readConfig(configFile)
 
     if doWeek and thisWeek <= 0:
-        openingDay = datetime.date(int(properties['startYear']), int(properties['startMonth']), int(properties['startDate']))
+        openingDay = datetime.date(int(properties['startYear']),
+                                   int(properties['startMonth']),
+                                   int(properties['startDate']))
         openingWeek = openingDay.isocalendar()[1]
         thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
 
-    rankings = power_rankings.PowerRankings(properties['leagueId'], properties['seasonId'], properties['lowerBetter'])
+    rankings = power_rankings.PowerRankings(properties['leagueId'],
+                                            properties['seasonId'],
+                                            properties['lowerBetter'].split(','))
     rankings.loginESPN(properties['username'], properties['password'])
 
     teamAbbrMap = rankings.getTeamAbbreviations()
@@ -203,7 +232,8 @@ def main():
     schedules = rankings.allSchedulesToDate()
     oppAwps = rankings.computeStrengthOfSchedule(standingsSoup, schedules)
 
-    printStandings(properties['leagueName'], teamAbbrMap, standings, oppAwps, properties['seasonId'], thisWeek)
+    printStandings(properties['leagueName'], teamAbbrMap, standings,
+                   oppAwps, properties['seasonId'], thisWeek)
     printPowerMatrix(teamAbbrMap, standings, records, matchups)
 
     if postMessageEnabled:

@@ -36,16 +36,24 @@ class PowerRankings:
         postData = {
             'SUBMIT': '1',
             'aff_code': 'espn_fantgames',
-            'appRedirect': 'http://games.espn.go.com/flb/leagueoffice?leagueId=%s&seasonId=%s' % (self.leagueId, self.seasonId),
+            'appRedirect':
+                'http://games.espn.go.com/flb/leagueoffice?\
+                leagueId=%s&seasonId=%s' %
+                (self.leagueId, self.seasonId),
             'cookieDomain': '.go.com',
-            'failedLocation': 'http://games.espn.go.com/flb/signin?redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fleagueoffice%%3FleagueId%%3D%s%%26seasonId%%3D%s&e=1' % (self.leagueId, self.seasonId),
+            'failedLocation':
+                'http://games.espn.go.com/flb/signin?\
+                redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fleagueoffice\
+                %%3FleagueId%%3D%s%%26seasonId%%3D%s&e=1' %
+                (self.leagueId, self.seasonId),
             'multipleDomains': 'true',
             'password': password,
             'submit': 'Sign In',
             'username': username,
             'failedAttempts': '2'
         }
-        self.session.post("https://r.espn.go.com/espn/fantasy/login", params=postData)
+        self.session.post("https://r.espn.go.com/espn/fantasy/login",
+                          params=postData)
 
     def postMessage(self, thisWeek, message, subject=''):
         if subject == '':
@@ -62,12 +70,16 @@ class PowerRankings:
             'redir': '/flb/leagueoffice?leagueId=%s' % self.leagueId,
             'incoming': '1'
         }
-        self.session.post('http://games.espn.go.com/flb/tools/postmessage', params=params)
+        self.session.post('http://games.espn.go.com/flb/tools/postmessage',
+                          params=params)
 
     def getTeamAbbreviations(self):
         teamAbbrMap = {}
 
-        r = self.session.get('http://games.espn.go.com/flb/leaguesetup/ownerinfo', params={'leagueId': self.leagueId, 'seasonId': self.seasonId})
+        r = self.session.get(
+            'http://games.espn.go.com/flb/leaguesetup/ownerinfo',
+            params={'leagueId': self.leagueId,
+                    'seasonId': self.seasonId})
         soup = BeautifulSoup(r.text, "lxml")
         ownerRows = soup.findAll("tr", "ownerRow")
         for row in ownerRows:
@@ -94,7 +106,8 @@ class PowerRankings:
             endDateStr = dateRange.split('-')[1].strip()
         else:
             endDateStr = dateRange[:3] + ' ' + dateRange[-2:].strip()
-        endDate = datetime.datetime.strptime(self.seasonId + ' ' + endDateStr, '%Y %b %d').date()
+        endDate = datetime.datetime.strptime(self.seasonId + ' ' + endDateStr,
+                                             '%Y %b %d').date()
 
         # then the opponent
         opponent = tds[3].find('a').contents[0].strip()
@@ -102,18 +115,27 @@ class PowerRankings:
         return (endDate, opponent)
 
     def teamScheduleToDate(self, teamId):
-        r = self.session.get('http://games.espn.go.com/flb/schedule', params={'leagueId': self.leagueId, 'seasonId': self.seasonId, 'teamId': teamId})
+        r = self.session.get('http://games.espn.go.com/flb/schedule',
+                             params={'leagueId': self.leagueId,
+                                     'seasonId': self.seasonId,
+                                     'teamId': teamId})
         soup = BeautifulSoup(r.text, "lxml")
         # team name appears as <h1>Team Name Schedule</h1>
-        teamName = soup.find_all('h1')[1].contents[0][:-1 * len('Schedule ')].strip()
+        teamName = soup.find_all('h1')[1].contents[0][:-1 *
+                                                      len('Schedule ')].strip()
         schedSoup = soup.find_all('tr')
-        matchupRows = [tr for tr in schedSoup[3:] if len(tr.find('td').contents) > 0 and str(tr.find('td').contents[0]).startswith('Matchup')]
+        matchupRows = [tr for tr in schedSoup[3:]
+                       if len(tr.find('td').contents) > 0 and
+                       str(tr.find('td').contents[0]).startswith('Matchup')]
         return (teamName, matchupRows)
 
     def getTeamIds(self):
-        r = self.session.get('http://games.espn.go.com/flb/schedule', params={'leagueId': self.leagueId, 'seasonId': self.seasonId})
+        r = self.session.get('http://games.espn.go.com/flb/schedule',
+                             params={'leagueId': self.leagueId,
+                                     'seasonId': self.seasonId})
         soup = BeautifulSoup(r.text, "lxml")
-        teamOptions = soup.find('div', class_='bodyCopy').find('select').find_all('option')
+        teamOptions = soup.find('div', class_='bodyCopy').\
+            find('select').find_all('option')
         # remove the first option, which is for "All" teams
         return [option.attrs['value'] for option in teamOptions][1:]
 
@@ -133,31 +155,42 @@ class PowerRankings:
 
 
     def getScoreboardSoup(self, thisWeek):
-        r = self.session.get('http://games.espn.go.com/flb/scoreboard', params={'leagueId': self.leagueId, 'seasonId': self.seasonId, 'matchupPeriodId': thisWeek})
+        r = self.session.get('http://games.espn.go.com/flb/scoreboard',
+                             params={'leagueId': self.leagueId,
+                                     'seasonId': self.seasonId,
+                                     'matchupPeriodId': thisWeek})
         soup = BeautifulSoup(r.text, "lxml")
         return soup.findAll(id='scoreboardMatchups')
 
     def getStandingsSoup(self):
-        r = self.session.get('http://games.espn.go.com/flb/standings', params={'leagueId': self.leagueId, 'seasonId': self.seasonId})
+        r = self.session.get('http://games.espn.go.com/flb/standings',
+                             params={'leagueId': self.leagueId,
+                                     'seasonId': self.seasonId})
         soup = BeautifulSoup(r.text, "lxml")
         return soup.find(id='statsTable')
 
     def cumulativeTotals(self, standingsSoup):
-        categories = [x.find('a').contents[0] for x in standingsSoup.find_all('tr', class_='tableSubHead')[1].find_all('td', style='width:50px;')]
+        categories = [x.find('a').contents[0] for x in
+                      standingsSoup.find_all('tr', class_='tableSubHead')[1].
+                      find_all('td', style='width:50px;')]
         statRows = standingsSoup.find_all('tr', class_='tableBody sortableRow')
         totals = {}
         for team in statRows:
-            teamName = team.find('td', class_='sortableTeamName').find('a').contents[0].strip()
-            totals[teamName] = self.teamTotals(team.find_all('td', id=re.compile('tmTotalStat*')), categories)
+            teamName = team.find('td', class_='sortableTeamName').find('a').\
+                contents[0].strip()
+            totals[teamName] = self.teamTotals(team.
+                                               find_all('td',
+                                                        id=re.compile(
+                                                            'tmTotalStat*')),
+                                               categories)
         return totals
 
     def teamTotals(self, teamStats, categories):
         totals = []
-        lowerBetterCats = set(self.lowerBetterCategories.split(','))
 
         for t in zip(teamStats, categories):
             total = float(t[0].contents[0])
-            if t[1] in lowerBetterCats:
+            if t[1] in self.lowerBetterCategories:
                 total *= -1
             totals.append(total)
 
@@ -171,15 +204,24 @@ class PowerRankings:
             for m in matchups:
                 catRow = m.nextSibling
                 # the first column is NAME, and the last is SCORE, so ignore them
-                categories = [str(x.contents[0]).strip() for x in catRow.findAll('th')[1:-1]]
+                categories = [str(x.contents[0]).strip()
+                              for x in catRow.findAll('th')[1:-1]]
 
                 team1Stats = catRow.nextSibling
                 team2Stats = team1Stats.nextSibling
-                t1Name = str(team1Stats.find('td', 'teamName').find('a').contents[0]).strip()
-                totals[t1Name] = self.teamTotals(team1Stats.findAll('td', id=re.compile('^total_(\d+)_*')), categories)
+                t1Name = str(team1Stats.find('td', 'teamName').find('a').
+                             contents[0]).strip()
+                totals[t1Name] = self.teamTotals(team1Stats.
+                                                 findAll('td',
+                                                         id=re.compile('^total_(\d+)_*')),
+                                                 categories)
 
-                t2Name = str(team2Stats.find('td', 'teamName').find('a').contents[0]).strip()
-                totals[t2Name] = self.teamTotals(team2Stats.findAll('td', id=re.compile('^total_(\d+)_*')), categories)
+                t2Name = str(team2Stats.find('td', 'teamName').find('a').
+                             contents[0]).strip()
+                totals[t2Name] = self.teamTotals(team2Stats.
+                                                 findAll('td',
+                                                         id=re.compile('^total_(\d+)_*')),
+                                                 categories)
 
                 pairings[t1Name] = t2Name
                 pairings[t2Name] = t1Name
@@ -199,7 +241,9 @@ class PowerRankings:
                             losses += 1
                         else:
                             ties += 1
-                    records[team][opp] = {'wins': wins, 'losses': losses, 'ties': ties}
+                    records[team][opp] = {'wins': wins,
+                                          'losses': losses,
+                                          'ties': ties}
                     records[team]['wins'] += wins
                     records[team]['losses'] += losses
                     records[team]['ties'] += ties

@@ -19,7 +19,7 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import power_rankings
+from power_rankings import WeeklyRankings, SeasonRankings
 import getopt
 import datetime
 import sys
@@ -39,7 +39,7 @@ def readConfig(configFile):
 
 
 def printStandings(leagueName, teamAbbrMap, standings,
-                   oppAwps, seasonId, thisWeek):
+                   seasonId, thisWeek):
     print("""\
 <html>
 <head>
@@ -54,6 +54,7 @@ def printStandings(leagueName, teamAbbrMap, standings,
       <tr>
         <th>Rank</th>
         <th>Team</th>
+        <th>Record</th>
         <th>
           <acronym title="Aggregate Winning Percentage">AWP*</acronym>
         </th>
@@ -65,9 +66,11 @@ def printStandings(leagueName, teamAbbrMap, standings,
 """ % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
     for row in standings:
         awp = ('%.3f' % row['awp'])[1:]
-        oppAwp = ('%.3f' % oppAwps[row['team']])[1:]
-        print("""<tr><td>%d</td><td>%s (%s)</td><td>%s</td><td>%s</td></tr>""" %
+        oppAwp = ('%.3f' % row['oppAwp'])[1:]
+        print("""<tr><td>%d</td><td>%s (%s)</td><td>%d-%d-%d</td>\
+<td>%s</td><td>%s</td></tr>""" %
               (row['rank'], row['team'], teamAbbrMap[row['team']],
+               row['wins'], row['losses'], row['ties'],
                awp, oppAwp))
     print("""
     </table>
@@ -75,7 +78,7 @@ def printStandings(leagueName, teamAbbrMap, standings,
   <br/>""")
 
 
-def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
+def printPowerMatrix(teamAbbrMap, standings):
     print("""
   <h3>Relative Power Matrix</h3>
   <i>Actual matchup in <b>bold</b>.
@@ -97,19 +100,21 @@ def printPowerMatrix(teamAbbrMap, standings, records, matchups=None):
         print('<tr>')
         print('\t<th><acronym title="%s">%s</acronym></th>' %
               (row['team'], teamAbbrMap[row['team']]))
-        wins = records[row['team']]['wins']
-        losses = records[row['team']]['losses']
-        ties = records[row['team']]['ties']
+        wins = row['wins']
+        losses = row['losses']
+        ties = row['ties']
         for opp in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
             if row['team'] == opp['team']:
                 print('\t<td>&nbsp;</td>')
             else:
+                oppName = opp['team']
                 css = ''
-                if not matchups == None and matchups[row['team']] == opp['team']:
+                if ('opp' in row['powerRow'] and
+                        row['powerRow']['opp'] == opp['team']):
                     css = 'matchup '
-                oppWins = records[row['team']][opp['team']]['wins']
-                oppLosses = records[row['team']][opp['team']]['losses']
-                oppTies = records[row['team']][opp['team']]['ties']
+                oppWins = row['powerRow']['oppRecords'][oppName]['wins']
+                oppLosses = row['powerRow']['oppRecords'][oppName]['losses']
+                oppTies = row['powerRow']['oppRecords'][oppName]['ties']
                 if oppWins > oppLosses:
                     css += 'win'
                 elif oppWins < oppLosses:
@@ -213,28 +218,21 @@ def main():
         openingWeek = openingDay.isocalendar()[1]
         thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
 
-    rankings = power_rankings.PowerRankings(properties['leagueId'],
-                                            properties['seasonId'],
-                                            properties['lowerBetter'].split(','))
-    rankings.loginESPN(properties['username'], properties['password'])
-
-    teamAbbrMap = rankings.getTeamAbbreviations()
-    standingsSoup = rankings.getStandingsSoup()
+    leagueId = properties['leagueId']
+    seasonId = properties['seasonId']
+    lowerBetter = properties['lowerBetter'].split(',')
     if doWeek:
-        scores = rankings.getScoreboardSoup(thisWeek)
-        (totals, matchups) = rankings.matchupTotals(scores)
+        rankings = WeeklyRankings(leagueId, seasonId, lowerBetter, thisWeek)
     else:
-        totals = rankings.cumulativeTotals(standingSoup)
-        matchups = None
+        rankings = SeasonRankings(leagueId, seasonId, lowerBetter)
 
-    records = rankings.calculateRecords(totals)
-    standings = rankings.determineStandings(records)
-    schedules = rankings.allSchedulesToDate()
-    oppAwps = rankings.computeStrengthOfSchedule(standingsSoup, schedules)
+    rankings.loginESPN(properties['username'], properties['password'])
+    teamAbbrMap = rankings.teamAbbreviations()
+    standings = rankings.standings()
 
-    printStandings(properties['leagueName'], teamAbbrMap, standings,
-                   oppAwps, properties['seasonId'], thisWeek)
-    printPowerMatrix(teamAbbrMap, standings, records, matchups)
+    printStandings(properties['leagueName'], teamAbbrMap,
+                   standings, seasonId, thisWeek)
+    printPowerMatrix(teamAbbrMap, standings)
 
     if postMessageEnabled:
         subject = 'test'

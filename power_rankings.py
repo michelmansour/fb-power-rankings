@@ -26,6 +26,8 @@ import datetime
 
 
 class PowerRankings:
+    BS_PARSER = "lxml"
+
     def __init__(self, leagueId, seasonId, lowerBetterCategories):
         self.leagueId = leagueId
         self.seasonId = seasonId
@@ -73,14 +75,14 @@ class PowerRankings:
         self.session.post('http://games.espn.go.com/flb/tools/postmessage',
                           params=params)
 
-    def getTeamAbbreviations(self):
+    def teamAbbreviations(self):
         teamAbbrMap = {}
 
         r = self.session.get(
             'http://games.espn.go.com/flb/leaguesetup/ownerinfo',
             params={'leagueId': self.leagueId,
                     'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, "lxml")
+        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
         ownerRows = soup.findAll("tr", "ownerRow")
         for row in ownerRows:
             cells = row.findAll("td")
@@ -110,7 +112,14 @@ class PowerRankings:
                                              '%Y %b %d').date()
 
         # then the opponent
-        opponent = tds[3].find('a').contents[0].strip()
+        # there is no way to tell that we've looked at the whole season except
+        # that the number of columns has changed
+        # also, in some years, a column is added indicating the team's record
+        # to that point, but the opponent is always the second-to-last column
+        if len(tds) >= 4:
+            opponent = tds[-2].find('a').contents[0].strip()
+        else:
+            endDate = None
 
         return (endDate, opponent)
 
@@ -119,7 +128,7 @@ class PowerRankings:
                              params={'leagueId': self.leagueId,
                                      'seasonId': self.seasonId,
                                      'teamId': teamId})
-        soup = BeautifulSoup(r.text, "lxml")
+        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
         # team name appears as <h1>Team Name Schedule</h1>
         teamName = soup.find_all('h1')[1].contents[0][:-1 *
                                                       len('Schedule ')].strip()
@@ -129,11 +138,11 @@ class PowerRankings:
                        str(tr.find('td').contents[0]).startswith('Matchup')]
         return (teamName, matchupRows)
 
-    def getTeamIds(self):
+    def teamIds(self):
         r = self.session.get('http://games.espn.go.com/flb/schedule',
                              params={'leagueId': self.leagueId,
                                      'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, "lxml")
+        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
         teamOptions = soup.find('div', class_='bodyCopy').\
             find('select').find_all('option')
         # remove the first option, which is for "All" teams
@@ -141,35 +150,67 @@ class PowerRankings:
 
     def allSchedulesToDate(self):
         schedules = {}
-        for teamId in self.getTeamIds():
+        for teamId in self.teamIds():
             opponents = []
             (teamName, teamMatchupRows) = self.teamScheduleToDate(teamId)
             for matchupRow in teamMatchupRows[:3]:
                 (endDate, opponent) = self.extractMatchupFromSchedule(matchupRow)
-                if datetime.date.today() > endDate:
+                if endDate is not None and datetime.date.today() > endDate:
                     opponents.append(opponent)
                 else:
                     break
             schedules[teamName] = opponents
         return schedules
 
+    def teamTotals(self, teamStats, categories):
+        totals = []
 
-    def getScoreboardSoup(self, thisWeek):
-        r = self.session.get('http://games.espn.go.com/flb/scoreboard',
-                             params={'leagueId': self.leagueId,
-                                     'seasonId': self.seasonId,
-                                     'matchupPeriodId': thisWeek})
-        soup = BeautifulSoup(r.text, "lxml")
-        return soup.findAll(id='scoreboardMatchups')
+        for t in zip(teamStats, categories):
+            total = float(t[0].contents[0])
+            if t[1] in self.lowerBetterCategories:
+                total *= -1
+            totals.append(total)
 
-    def getStandingsSoup(self):
+        return totals
+
+    def totals():
+        return
+
+    def powerMatrix(self):
+        records = {}
+        (totals, pairings) = self.totals()
+        for team in totals.keys():
+            records[team] = {'wins': 0, 'losses': 0, 'ties': 0,
+                             'oppRecords': {}}
+            if team in pairings:
+                records[team]['opp'] = pairings[team]
+            for opp in totals.keys():
+                if not team == opp:
+                    wins, losses, ties = 0, 0, 0
+                    for cat in zip(totals[team], totals[opp]):
+                        if cat[0] > cat[1]:
+                            wins += 1
+                        elif cat[0] < cat[1]:
+                            losses += 1
+                        else:
+                            ties += 1
+                    records[team]['oppRecords'][opp] = {'wins': wins,
+                                                        'losses': losses,
+                                                        'ties': ties}
+                    records[team]['wins'] += wins
+                    records[team]['losses'] += losses
+                    records[team]['ties'] += ties
+        return records
+
+    def standingsSoup(self):
         r = self.session.get('http://games.espn.go.com/flb/standings',
                              params={'leagueId': self.leagueId,
                                      'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, "lxml")
+        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
         return soup.find(id='statsTable')
 
-    def cumulativeTotals(self, standingsSoup):
+    def cumulativeTotals(self):
+        standingsSoup = self.standingsSoup()
         categories = [x.find('a').contents[0] for x in
                       standingsSoup.find_all('tr', class_='tableSubHead')[1].
                       find_all('td', style='width:50px;')]
@@ -183,97 +224,11 @@ class PowerRankings:
                                                         id=re.compile(
                                                             'tmTotalStat*')),
                                                categories)
-        return totals
+        return (totals, {})
 
-    def teamTotals(self, teamStats, categories):
-        totals = []
-
-        for t in zip(teamStats, categories):
-            total = float(t[0].contents[0])
-            if t[1] in self.lowerBetterCategories:
-                total *= -1
-            totals.append(total)
-
-        return totals
-
-    def matchupTotals(self, scoreSoup):
-        pairings = {}
-        totals = {}
-        for score in scoreSoup:
-            matchups = score.findAll('tr', 'tableHead')
-            for m in matchups:
-                catRow = m.nextSibling
-                # the first column is NAME, and the last is SCORE, so ignore them
-                categories = [str(x.contents[0]).strip()
-                              for x in catRow.findAll('th')[1:-1]]
-
-                team1Stats = catRow.nextSibling
-                team2Stats = team1Stats.nextSibling
-                t1Name = str(team1Stats.find('td', 'teamName').find('a').
-                             contents[0]).strip()
-                totals[t1Name] = self.teamTotals(team1Stats.
-                                                 findAll('td',
-                                                         id=re.compile('^total_(\d+)_*')),
-                                                 categories)
-
-                t2Name = str(team2Stats.find('td', 'teamName').find('a').
-                             contents[0]).strip()
-                totals[t2Name] = self.teamTotals(team2Stats.
-                                                 findAll('td',
-                                                         id=re.compile('^total_(\d+)_*')),
-                                                 categories)
-
-                pairings[t1Name] = t2Name
-                pairings[t2Name] = t1Name
-        return (totals, pairings)
-
-    def calculateRecords(self, totals):
-        records = {}
-        for team in totals.keys():
-            records[team] = {'wins': 0, 'losses': 0, 'ties': 0}
-            for opp in totals.keys():
-                if not team == opp:
-                    wins, losses, ties = 0, 0, 0
-                    for cat in zip(totals[team], totals[opp]):
-                        if cat[0] > cat[1]:
-                            wins += 1
-                        elif cat[0] < cat[1]:
-                            losses += 1
-                        else:
-                            ties += 1
-                    records[team][opp] = {'wins': wins,
-                                          'losses': losses,
-                                          'ties': ties}
-                    records[team]['wins'] += wins
-                    records[team]['losses'] += losses
-                    records[team]['ties'] += ties
-        return records
-
-    @staticmethod
-    def awp(wins, losses, ties):
-        return (wins + ties / 2.0) / (wins + losses + ties)
-
-    def determineStandings(self, records):
-        standings = []
-        for team in sorted(records.keys()):
-            wins = records[team]['wins']
-            losses = records[team]['losses']
-            ties = records[team]['ties']
-            standingRow = {}
-            standingRow['awp'] = PowerRankings.awp(wins, losses, ties)
-            standingRow['team'] = team
-            standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
-            standings.append(standingRow)
-
-        rank = 1
-        for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
-            row['rank'] = rank
-            rank += 1
-
-        return sorted(standings, key=lambda x: x['rank'])
-
-    def computeStrengthOfSchedule(self, standingsSoup, schedule):
-        records = self.calculateRecords(self.cumulativeTotals(standingsSoup))
+    def computeStrengthOfSchedule(self):
+        records = self.powerMatrix()
+        schedule = self.allSchedulesToDate()
         oppAwps = {}
         for team in schedule.keys():
             oppWins = oppLosses = oppTies = 0
@@ -284,3 +239,80 @@ class PowerRankings:
             oppAwps[team] = PowerRankings.awp(oppWins, oppLosses, oppTies)
 
         return oppAwps
+
+    @staticmethod
+    def awp(wins, losses, ties):
+        return (wins + ties / 2.0) / (wins + losses + ties)
+
+    def standings(self):
+        oppAwps = self.computeStrengthOfSchedule()
+        powerMatrix = self.powerMatrix()
+        standings = []
+        for team in sorted(powerMatrix.keys()):
+            wins = powerMatrix[team]['wins']
+            losses = powerMatrix[team]['losses']
+            ties = powerMatrix[team]['ties']
+            standingRow = {'wins': wins, 'losses': losses, 'ties': ties}
+            standingRow['awp'] = PowerRankings.awp(wins, losses, ties)
+            standingRow['oppAwp'] = oppAwps[team]
+            standingRow['team'] = team
+            standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
+            standingRow['powerRow'] = powerMatrix[team]
+            standings.append(standingRow)
+
+        rank = 1
+        for row in sorted(standings, key=lambda x: x['awp'], reverse=True):
+            row['rank'] = rank
+            rank += 1
+
+        return sorted(standings, key=lambda x: x['rank'])
+
+
+class WeeklyRankings(PowerRankings):
+    def __init__(self, leagueId, seasonId, lowerBetterCategories, week):
+        PowerRankings.__init__(self, leagueId, seasonId, lowerBetterCategories)
+        self.week = week
+
+    def scoreboardSoup(self):
+        r = self.session.get('http://games.espn.go.com/flb/scoreboard',
+                             params={'leagueId': self.leagueId,
+                                     'seasonId': self.seasonId,
+                                     'matchupPeriodId': self.week})
+        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+        return soup.findAll(id='scoreboardMatchups')
+
+    def parseStats(self, statsSoup, categories):
+        return self.teamTotals(
+            statsSoup.findAll('td', id=re.compile('^total_(\d+)_*')),
+            categories)
+
+    def parseTeamName(self, statsSoup):
+        return str(statsSoup.find('td', 'teamName').find('a').contents[0]).strip()
+
+    def totals(self):
+        pairings = {}
+        totals = {}
+        scoreSoup = self.scoreboardSoup()
+        for score in scoreSoup:
+            matchups = score.findAll('tr', 'tableHead')
+            for m in matchups:
+                catRow = m.nextSibling
+                # first column is NAME and last is SCORE, so ignore them
+                categories = [str(x.contents[0]).strip()
+                              for x in catRow.findAll('th')[1:-1]]
+
+                team1Stats = catRow.nextSibling
+                team2Stats = team1Stats.nextSibling
+                t1Name = self.parseTeamName(team1Stats)
+                t2Name = self.parseTeamName(team2Stats)
+                totals[t1Name] = self.parseStats(team1Stats, categories)
+                totals[t2Name] = self.parseStats(team2Stats, categories)
+
+                pairings[t1Name] = t2Name
+                pairings[t2Name] = t1Name
+        return (totals, pairings)
+
+
+class SeasonRankings(PowerRankings):
+    def totals(self):
+        return self.cumulativeTotals()

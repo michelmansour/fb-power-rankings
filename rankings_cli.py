@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2014 Michel Mansour
+# Copyright (c) 2015 Michel Mansour
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -18,6 +18,24 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+"""\
+Usage: %s [options...]
+Compute power rankings for head-to-head ESPN fantasy baseball leagues and
+output the results as an HTML document.
+The default action is to compute rankings for current matchup period.
+
+Options:
+    -h, --help          Print this usage message and quit
+    -c <file>, --config=<file>  Configuration file to use (default: pr.conf)
+    -w <week>, --week=<week>    Week number of the matchup period. Only one
+                                -w or -s may be provided.
+                                (Default: current week)
+    -s, --season        Season power rankings to date. Only one of -w or -s may
+                        be provided.
+    -m, --post-message  Post a simple message to the league message board.
+                        Pulls quotes from fortune if avaialble.
+"""
 
 from power_rankings import WeeklyRankings, SeasonRankings
 import getopt
@@ -38,7 +56,7 @@ def readConfig(configFile):
     return props
 
 
-def printStandings(leagueName, teamAbbrMap, standings,
+def printRankings(leagueName, teamAbbrMap, rankings,
                    seasonId, thisWeek):
     print("""\
 <html>
@@ -64,7 +82,7 @@ def printStandings(leagueName, teamAbbrMap, standings,
         </th>
       </tr>
 """ % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
-    for row in standings:
+    for row in rankings:
         awp = ('%.3f' % row['awp'])[1:]
         oppAwp = ('%.3f' % row['oppAwp'])[1:]
         print("""<tr><td>%d</td><td>%s (%s)</td><td>%d-%d-%d</td>\
@@ -78,7 +96,7 @@ def printStandings(leagueName, teamAbbrMap, standings,
   <br/>""")
 
 
-def printPowerMatrix(teamAbbrMap, standings):
+def printPowerMatrix(teamAbbrMap, rankings):
     print("""
   <h3>Relative Power Matrix</h3>
   <i>Actual matchup in <b>bold</b>.
@@ -96,25 +114,24 @@ def printPowerMatrix(teamAbbrMap, standings):
     </tr>
 """)
 
-    for row in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
+    for row in sorted(rankings, key=lambda x: teamAbbrMap[x['team']]):
         print('<tr>')
         print('\t<th><acronym title="%s">%s</acronym></th>' %
               (row['team'], teamAbbrMap[row['team']]))
         wins = row['wins']
         losses = row['losses']
         ties = row['ties']
-        for opp in sorted(standings, key=lambda x: teamAbbrMap[x['team']]):
+        for opp in sorted(rankings, key=lambda x: teamAbbrMap[x['team']]):
             if row['team'] == opp['team']:
                 print('\t<td>&nbsp;</td>')
             else:
                 oppName = opp['team']
                 css = ''
-                if ('opp' in row['powerRow'] and
-                        row['powerRow']['opp'] == opp['team']):
+                if (row['matchupOpp'] == opp['team']):
                     css = 'matchup '
-                oppWins = row['powerRow']['oppRecords'][oppName]['wins']
-                oppLosses = row['powerRow']['oppRecords'][oppName]['losses']
-                oppTies = row['powerRow']['oppRecords'][oppName]['ties']
+                oppWins = row['powerRow'][oppName]['wins']
+                oppLosses = row['powerRow'][oppName]['losses']
+                oppTies = row['powerRow'][oppName]['ties']
                 if oppWins > oppLosses:
                     css += 'win'
                 elif oppWins < oppLosses:
@@ -145,16 +162,7 @@ all opponents to date.</i>
 
 
 def usage():
-    print("""\
-Usage: %s [-c <file> | --config-file=<file>] [-w <week> | --week=<week> | -s |\
- --season] [-m | --post-message] [-h | --help]
-
-    -h, --help                   Print this usage message and quit
-    -c <file>, --config=<file>   Configuration file
-    -w <week>, --week=<week>     Weekly power rankings for <week>
-    -s, --season                 Season power rankings
-    -m, --post-message           Post a message""" %
-          sys.argv[0], file=sys.stderr)
+    print(__doc__ % sys.argv[0], file=sys.stderr)
 
 
 def main():
@@ -222,31 +230,36 @@ def main():
     seasonId = properties['seasonId']
     lowerBetter = properties['lowerBetter'].split(',')
     if doWeek:
-        rankings = WeeklyRankings(leagueId, seasonId, lowerBetter, thisWeek)
+        pr = WeeklyRankings(leagueId, seasonId, lowerBetter, thisWeek)
     else:
-        rankings = SeasonRankings(leagueId, seasonId, lowerBetter)
+        pr = SeasonRankings(leagueId, seasonId, lowerBetter)
 
-    rankings.loginESPN(properties['username'], properties['password'])
-    teamAbbrMap = rankings.teamAbbreviations()
-    standings = rankings.standings()
+    pr.loginESPN(properties['username'], properties['password'])
+    teamAbbrMap = pr.teamAbbreviations()
+    rankings = pr.powerRankings()
 
-    printStandings(properties['leagueName'], teamAbbrMap,
-                   standings, seasonId, thisWeek)
-    printPowerMatrix(teamAbbrMap, standings)
+    printRankings(properties['leagueName'], teamAbbrMap,
+                  rankings, seasonId, thisWeek)
+    printPowerMatrix(teamAbbrMap, rankings)
 
     if postMessageEnabled:
-        subject = 'test'
+        if doWeek:
+            subject = 'Week %d Power Rankings' % thisWeek
+            period = 'week %d' % thisWeek
+        else:
+            subject = 'Season Power Rankings'
+            period = 'the season so far'
         (ret, fortune) = subprocess.getstatusoutput('fortune fortunes')
         # RANKINGS URL HERE
-        msg = """Here are the power rankings for week %s: [link]%s[/link]
+        msg = """Here are the power rankings for %s: [link]%s[/link]
 
--- PowerBot""" % (thisWeek, properties['rankingsUrl'])
+-- PowerBot""" % (period, properties['rankingsUrl'])
         if ret == 0:
             msg += """
 [i]%s[/i]""" % fortune
         else:
             sys.stderr.write('fortune error')
-        rankings.postMessage(thisWeek, msg)
+        pr.postMessage(msg, subject)
 
 if __name__ == '__main__':
     main()

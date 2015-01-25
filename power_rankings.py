@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2014 Michel Mansour
+# Copyright (c) 2015 Michel Mansour
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -19,6 +19,15 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+"""
+Compute power rankings for an ESPN head-to-head fantasy baseball league.
+
+Classes provided:
+PowerRankings -- Perform common operations
+WeeklyRankings -- Perform operations specific to weekly rankings
+SeasonRankings -- Perform operations specific to season rankings
+"""
+
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -26,63 +35,106 @@ import datetime
 
 
 class PowerRankings:
-    BS_PARSER = "lxml"
+    """
+    Common operations for computing fantasy baseball power rankings.
+
+    This class accepts an ESPN league ID, season ID, and a list of categories
+    where a lower score is better and computes power rankings for that league
+    in a given time period. Subclasses determine that time period.
+
+    Public methods:
+        loginESPN -- Log in to ESPN fantasy sports system
+        powerRankings -- Compute power rankings for a time period
+        teamAbbreviations -- Retrieve team name abbreviations
+        postMessage -- Post a message the league's message board
+
+    Public instance variables:
+        None
+    """
+    _BS_PARSER = "lxml"
 
     def __init__(self, leagueId, seasonId, lowerBetterCategories):
-        self.leagueId = leagueId
-        self.seasonId = seasonId
-        self.lowerBetterCategories = lowerBetterCategories
-        self.session = requests.Session()
+        """Create a PowerRankings instance.
+
+           Required arguments:
+           leagueId -- the ESPN league ID
+           seasonID -- the season ID (the year)
+           lowerBetterCategories -- a list of scoring category names where a
+                                    lower total is better
+        """
+        self._leagueId = leagueId
+        self._seasonId = seasonId
+        self._lowerBetterCategories = lowerBetterCategories
+        self._session = requests.Session()
 
     def loginESPN(self, username, password):
+        """Log in to the ESPN fantasy sports system.
+
+           This method must be called first for private leagues.
+
+           Required arguments:
+           username -- the login username
+           password -- the login password
+        """
         postData = {
             'SUBMIT': '1',
             'aff_code': 'espn_fantgames',
             'appRedirect':
                 'http://games.espn.go.com/flb/leagueoffice?\
                 leagueId=%s&seasonId=%s' %
-                (self.leagueId, self.seasonId),
+                (self._leagueId, self._seasonId),
             'cookieDomain': '.go.com',
             'failedLocation':
                 'http://games.espn.go.com/flb/signin?\
                 redir=http%%3A%%2F%%2Fgames.espn.go.com%%2Fflb%%2Fleagueoffice\
                 %%3FleagueId%%3D%s%%26seasonId%%3D%s&e=1' %
-                (self.leagueId, self.seasonId),
+                (self._leagueId, self._seasonId),
             'multipleDomains': 'true',
             'password': password,
             'submit': 'Sign In',
             'username': username,
             'failedAttempts': '2'
         }
-        self.session.post("https://r.espn.go.com/espn/fantasy/login",
-                          params=postData)
+        self._session.post("https://r.espn.go.com/espn/fantasy/login",
+                           params=postData)
 
-    def postMessage(self, thisWeek, message, subject=''):
-        if subject == '':
-            subject = 'Power Rankings: Week %s' % thisWeek
+    def postMessage(self, message, subject='Power Rankings'):
+        """Post a message to the league message board.
 
+           Required arguments:
+           message -- the message to post
+
+           Keyword arguments:
+           subject -- the message subject (default 'Power Rankings')
+        """
         params = {
-            'leagueId': self.leagueId,
-            'seasonId': self.seasonId,
+            'leagueId': self._leagueId,
+            'seasonId': self._seasonId,
             'subject': subject,
             'body': message,
             'btnSubmit': 'Submit Message',
             'typeId': '0',
             'topicId': '0',
-            'redir': '/flb/leagueoffice?leagueId=%s' % self.leagueId,
+            'redir': '/flb/leagueoffice?leagueId=%s' % self._leagueId,
             'incoming': '1'
         }
-        self.session.post('http://games.espn.go.com/flb/tools/postmessage',
-                          params=params)
+        self._session.post('http://games.espn.go.com/flb/tools/postmessage',
+                           params=params)
 
     def teamAbbreviations(self):
+        """Get a dictionary of team names to their abbreviated versions.
+
+           The keys of this dictionary (ie, the team names) are the same as the
+           values of the 'team' key in the dictionary produced by the
+           powerRankings method.
+        """
         teamAbbrMap = {}
 
-        r = self.session.get(
+        r = self._session.get(
             'http://games.espn.go.com/flb/leaguesetup/ownerinfo',
-            params={'leagueId': self.leagueId,
-                    'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+            params={'leagueId': self._leagueId,
+                    'seasonId': self._seasonId})
+        soup = BeautifulSoup(r.text, PowerRankings._BS_PARSER)
         ownerRows = soup.findAll("tr", "ownerRow")
         for row in ownerRows:
             cells = row.findAll("td")
@@ -93,7 +145,7 @@ class PowerRankings:
 
         return teamAbbrMap
 
-    def extractMatchupFromSchedule(self, matchupSoup):
+    def _extractMatchup(self, matchupSoup):
         tds = matchupSoup.find_all('td')
         # first get the date
         matchupDate = tds[0].contents[0]
@@ -108,7 +160,7 @@ class PowerRankings:
             endDateStr = dateRange.split('-')[1].strip()
         else:
             endDateStr = dateRange[:3] + ' ' + dateRange[-2:].strip()
-        endDate = datetime.datetime.strptime(self.seasonId + ' ' + endDateStr,
+        endDate = datetime.datetime.strptime(self._seasonId + ' ' + endDateStr,
                                              '%Y %b %d').date()
 
         # then the opponent
@@ -123,12 +175,12 @@ class PowerRankings:
 
         return (endDate, opponent)
 
-    def teamScheduleToDate(self, teamId):
-        r = self.session.get('http://games.espn.go.com/flb/schedule',
-                             params={'leagueId': self.leagueId,
-                                     'seasonId': self.seasonId,
-                                     'teamId': teamId})
-        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+    def _teamSchedule(self, teamId):
+        r = self._session.get('http://games.espn.go.com/flb/schedule',
+                              params={'leagueId': self._leagueId,
+                                      'seasonId': self._seasonId,
+                                      'teamId': teamId})
+        soup = BeautifulSoup(r.text, PowerRankings._BS_PARSER)
         # team name appears as <h1>Team Name Schedule</h1>
         teamName = soup.find_all('h1')[1].contents[0][:-1 *
                                                       len('Schedule ')].strip()
@@ -138,23 +190,23 @@ class PowerRankings:
                        str(tr.find('td').contents[0]).startswith('Matchup')]
         return (teamName, matchupRows)
 
-    def teamIds(self):
-        r = self.session.get('http://games.espn.go.com/flb/schedule',
-                             params={'leagueId': self.leagueId,
-                                     'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+    def _teamIds(self):
+        r = self._session.get('http://games.espn.go.com/flb/schedule',
+                              params={'leagueId': self._leagueId,
+                                      'seasonId': self._seasonId})
+        soup = BeautifulSoup(r.text, PowerRankings._BS_PARSER)
         teamOptions = soup.find('div', class_='bodyCopy').\
             find('select').find_all('option')
         # remove the first option, which is for "All" teams
         return [option.attrs['value'] for option in teamOptions][1:]
 
-    def allSchedulesToDate(self):
+    def _allSchedules(self):
         schedules = {}
-        for teamId in self.teamIds():
+        for teamId in self._teamIds():
             opponents = []
-            (teamName, teamMatchupRows) = self.teamScheduleToDate(teamId)
+            (teamName, teamMatchupRows) = self._teamSchedule(teamId)
             for matchupRow in teamMatchupRows[:3]:
-                (endDate, opponent) = self.extractMatchupFromSchedule(matchupRow)
+                (endDate, opponent) = self._extractMatchup(matchupRow)
                 if endDate is not None and datetime.date.today() > endDate:
                     opponents.append(opponent)
                 else:
@@ -162,26 +214,26 @@ class PowerRankings:
             schedules[teamName] = opponents
         return schedules
 
-    def teamTotals(self, teamStats, categories):
+    def _teamTotals(self, teamStats, categories):
         totals = []
 
         for t in zip(teamStats, categories):
             total = float(t[0].contents[0])
-            if t[1] in self.lowerBetterCategories:
+            if t[1] in self._lowerBetterCategories:
                 total *= -1
             totals.append(total)
 
         return totals
 
-    def totals():
-        return
+    def _totals():
+        pass
 
-    def powerMatrix(self):
+    def _powerMatrix(self):
         records = {}
-        (totals, pairings) = self.totals()
+        (totals, pairings) = self._totals()
         for team in totals.keys():
             records[team] = {'wins': 0, 'losses': 0, 'ties': 0,
-                             'oppRecords': {}}
+                             'opp': None, 'oppRecords': {}}
             if team in pairings:
                 records[team]['opp'] = pairings[team]
             for opp in totals.keys():
@@ -202,15 +254,15 @@ class PowerRankings:
                     records[team]['ties'] += ties
         return records
 
-    def standingsSoup(self):
-        r = self.session.get('http://games.espn.go.com/flb/standings',
-                             params={'leagueId': self.leagueId,
-                                     'seasonId': self.seasonId})
-        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+    def _standingsSoup(self):
+        r = self._session.get('http://games.espn.go.com/flb/standings',
+                              params={'leagueId': self._leagueId,
+                                      'seasonId': self._seasonId})
+        soup = BeautifulSoup(r.text, PowerRankings._BS_PARSER)
         return soup.find(id='statsTable')
 
-    def cumulativeTotals(self):
-        standingsSoup = self.standingsSoup()
+    def _cumulativeTotals(self):
+        standingsSoup = self._standingsSoup()
         categories = [x.find('a').contents[0] for x in
                       standingsSoup.find_all('tr', class_='tableSubHead')[1].
                       find_all('td', style='width:50px;')]
@@ -219,16 +271,16 @@ class PowerRankings:
         for team in statRows:
             teamName = team.find('td', class_='sortableTeamName').find('a').\
                 contents[0].strip()
-            totals[teamName] = self.teamTotals(team.
-                                               find_all('td',
-                                                        id=re.compile(
-                                                            'tmTotalStat*')),
-                                               categories)
+            totals[teamName] = self._teamTotals(team.
+                                                find_all('td',
+                                                         id=re.compile(
+                                                             'tmTotalStat*')),
+                                                categories)
         return (totals, {})
 
-    def computeStrengthOfSchedule(self):
-        records = self.powerMatrix()
-        schedule = self.allSchedulesToDate()
+    def _strengthOfSchedule(self):
+        records = self._powerMatrix()
+        schedule = self._allSchedules()
         oppAwps = {}
         for team in schedule.keys():
             oppWins = oppLosses = oppTies = 0
@@ -236,28 +288,55 @@ class PowerRankings:
                 oppWins += records[opponent]['wins']
                 oppLosses += records[opponent]['losses']
                 oppTies += records[opponent]['ties']
-            oppAwps[team] = PowerRankings.awp(oppWins, oppLosses, oppTies)
+            oppAwps[team] = PowerRankings._awp(oppWins, oppLosses, oppTies)
 
         return oppAwps
 
     @staticmethod
-    def awp(wins, losses, ties):
+    def _awp(wins, losses, ties):
         return (wins + ties / 2.0) / (wins + losses + ties)
 
-    def standings(self):
-        oppAwps = self.computeStrengthOfSchedule()
-        powerMatrix = self.powerMatrix()
+    def powerRankings(self):
+        """Compute and return the power rankings.
+
+           The power rankings structure is a list of nested dicts. Each dict in
+           the list has the following key-value pairs:
+               'team' -- the team name (a string)
+               'wins' -- the number of wins (an integer)
+               'losses' -- the number of losses (an integer)
+               'ties' -- the number of ties (an integer)
+               'awp' -- the aggregate winning percentage (a float)
+               'oppAwp' -- the cumulative AWP of the team's opponents to date
+               'matchupOpp' -- the team's opponent during the matchup period
+                               or None, if there is no matchup period
+               'powerRow' -- a dict of the team's record against every other
+                             team in the league for the time period applying
+                             to the power rankings (week or season). The keys
+                             are the names of the other teams in the league,
+                             and the values are dictionaries with keys:
+                                 'wins' -- wins against this opponent
+                                 'losses' -- losses against this opponent
+                                 'ties' -- ties against this opponent.
+
+               To get a team's record against every other team in the league:
+
+               for opp in pr.powerRankings()['My Team']['powerRow']:
+                   print("Record against %s: %d-%d-%d" %
+                          opp, opp['wins'], opp['losses'], opp['ties'])
+        """
+        oppAwps = self._strengthOfSchedule()
+        powerMatrix = self._powerMatrix()
         standings = []
         for team in sorted(powerMatrix.keys()):
             wins = powerMatrix[team]['wins']
             losses = powerMatrix[team]['losses']
             ties = powerMatrix[team]['ties']
-            standingRow = {'wins': wins, 'losses': losses, 'ties': ties}
-            standingRow['awp'] = PowerRankings.awp(wins, losses, ties)
+            standingRow = {'team': team, 'wins': wins, 'losses': losses,
+                           'ties': ties}
+            standingRow['awp'] = PowerRankings._awp(wins, losses, ties)
             standingRow['oppAwp'] = oppAwps[team]
-            standingRow['team'] = team
-            standingRow['record'] = '%s-%s-%s' % (wins, losses, ties)
-            standingRow['powerRow'] = powerMatrix[team]
+            standingRow['matchupOpp'] = powerMatrix[team]['opp']
+            standingRow['powerRow'] = powerMatrix[team]['oppRecords']
             standings.append(standingRow)
 
         rank = 1
@@ -269,30 +348,42 @@ class PowerRankings:
 
 
 class WeeklyRankings(PowerRankings):
-    def __init__(self, leagueId, seasonId, lowerBetterCategories, week):
-        PowerRankings.__init__(self, leagueId, seasonId, lowerBetterCategories)
-        self.week = week
+    """Compute weekly power rankings."""
 
-    def scoreboardSoup(self):
-        r = self.session.get('http://games.espn.go.com/flb/scoreboard',
-                             params={'leagueId': self.leagueId,
-                                     'seasonId': self.seasonId,
-                                     'matchupPeriodId': self.week})
-        soup = BeautifulSoup(r.text, PowerRankings.BS_PARSER)
+    def __init__(self, leagueId, seasonId, lowerBetterCategories, week):
+        """Create a WeeklyRankings instance.
+
+           Override PowerRankings.__init__
+           Required Arguments:
+           leagueId -- the ESPN league ID
+           seasonId -- the season ID (the year)
+           lowerBetterCategories -- a list of scoring category names where a
+                                    lower score is better
+           week -- the week (matchup period) to compute the rankings for
+        """
+        PowerRankings.__init__(self, leagueId, seasonId, lowerBetterCategories)
+        self._week = week
+
+    def _scoreboardSoup(self):
+        r = self._session.get('http://games.espn.go.com/flb/scoreboard',
+                              params={'leagueId': self._leagueId,
+                                      'seasonId': self._seasonId,
+                                      'matchupPeriodId': self._week})
+        soup = BeautifulSoup(r.text, PowerRankings._BS_PARSER)
         return soup.findAll(id='scoreboardMatchups')
 
-    def parseStats(self, statsSoup, categories):
-        return self.teamTotals(
+    def _parseStats(self, statsSoup, categories):
+        return self._teamTotals(
             statsSoup.findAll('td', id=re.compile('^total_(\d+)_*')),
             categories)
 
-    def parseTeamName(self, statsSoup):
+    def _parseTeamName(self, statsSoup):
         return str(statsSoup.find('td', 'teamName').find('a').contents[0]).strip()
 
-    def totals(self):
+    def _totals(self):
         pairings = {}
         totals = {}
-        scoreSoup = self.scoreboardSoup()
+        scoreSoup = self._scoreboardSoup()
         for score in scoreSoup:
             matchups = score.findAll('tr', 'tableHead')
             for m in matchups:
@@ -303,10 +394,10 @@ class WeeklyRankings(PowerRankings):
 
                 team1Stats = catRow.nextSibling
                 team2Stats = team1Stats.nextSibling
-                t1Name = self.parseTeamName(team1Stats)
-                t2Name = self.parseTeamName(team2Stats)
-                totals[t1Name] = self.parseStats(team1Stats, categories)
-                totals[t2Name] = self.parseStats(team2Stats, categories)
+                t1Name = self._parseTeamName(team1Stats)
+                t2Name = self._parseTeamName(team2Stats)
+                totals[t1Name] = self._parseStats(team1Stats, categories)
+                totals[t2Name] = self._parseStats(team2Stats, categories)
 
                 pairings[t1Name] = t2Name
                 pairings[t2Name] = t1Name
@@ -314,5 +405,6 @@ class WeeklyRankings(PowerRankings):
 
 
 class SeasonRankings(PowerRankings):
-    def totals(self):
-        return self.cumulativeTotals()
+    """Compute cumulative season power rankings to date."""
+    def _totals(self):
+        return self._cumulativeTotals()

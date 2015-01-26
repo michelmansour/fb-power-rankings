@@ -37,18 +37,17 @@ import subprocess
 
 def readConfig(configFile):
     props = {}
-    conf = open(configFile, 'r')
-    for line in conf:
-        if not line.startswith('#') and line.strip():
-            prop = line.rstrip().split('=')
-            props[prop[0]] = prop[1]
+    with open(configFile, 'r') as conf:
+        for line in conf:
+            if not line.startswith('#') and line.strip():
+                prop = line.rstrip().split('=')
+                props[prop[0]] = prop[1]
 
     return props
 
 
 def printRankings(leagueName, teamAbbrMap, rankings,
                   seasonId, thisWeek):
-
     if thisWeek > 0:
         rankingsTitle = 'Week %s' % thisWeek
         dateStr = ''

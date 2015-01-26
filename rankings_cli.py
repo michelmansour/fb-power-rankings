@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 # The MIT License (MIT)
 #
 # Copyright (c) 2015 Michel Mansour
@@ -20,28 +23,15 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 """\
-Usage: %s [options...]
 Compute power rankings for head-to-head ESPN fantasy baseball leagues and
 output the results as an HTML document.
 The default action is to compute rankings for current matchup period.
-
-Options:
-    -h, --help          Print this usage message and quit
-    -c <file>, --config=<file>  Configuration file to use (default: pr.conf)
-    -w <week>, --week=<week>    Week number of the matchup period. Only one
-                                -w or -s may be provided.
-                                (Default: current week)
-    -s, --season        Season power rankings to date. Only one of -w or -s may
-                        be provided.
-    -m, --post-message  Post a simple message to the league message board.
-                        Pulls quotes from fortune if avaialble.
 """
 
 from power_rankings import WeeklyRankings, SeasonRankings
-import getopt
+import argparse
 import datetime
 import sys
-import os
 import subprocess
 
 
@@ -57,15 +47,22 @@ def readConfig(configFile):
 
 
 def printRankings(leagueName, teamAbbrMap, rankings,
-                   seasonId, thisWeek):
+                  seasonId, thisWeek):
+
+    if thisWeek > 0:
+        rankingsTitle = 'Week %s' % thisWeek
+        dateStr = ''
+    else:
+        rankingsTitle = 'Season'
+        dateStr = '(%s)' % datetime.date.today().strftime('%x')
     print("""\
 <html>
 <head>
-  <title>%s %s - Week %s</title>
+    <title>%(leagueName)s %(year)s - %(title)s</title>
   <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-  <h2>%s %s - Week %s Power Rankings</h2>
+    <h2>%(leagueName)s %(year)s - %(title)s Power Rankings %(dateStr)s</h2>
 
   <h3>Power Rankings</h3>
     <table border="1">
@@ -81,7 +78,8 @@ def printRankings(leagueName, teamAbbrMap, rankings,
 </acronym>
         </th>
       </tr>
-""" % (leagueName, seasonId, thisWeek, leagueName, seasonId, thisWeek))
+""" % {'leagueName': leagueName, 'year': seasonId, 'title': rankingsTitle,
+       'dateStr': dateStr})
     for row in rankings:
         awp = ('%.3f' % row['awp'])[1:]
         oppAwp = ('%.3f' % row['oppAwp'])[1:]
@@ -161,78 +159,30 @@ all opponents to date.</i>
 """)
 
 
-def usage():
-    print(__doc__ % sys.argv[0], file=sys.stderr)
-
-
-def main():
-    path = os.path.dirname(sys.argv[0])
-    configFile = 'pr.conf'
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:w:smh',
-                                   ['config=', 'week=', 'season',
-                                    'post-message', 'help'])
-    except getopt.GetoptError as err:
-        print(str(err))
-        usage()
-        sys.exit(1)
+def main(args):
     thisWeek = 0
-    postMessageEnabled = False
-    doWeek = False
     doSeason = False
-    for o, a in opts:
-        if o in ('-h', '--help'):
-            usage()
-            sys.exit(0)
-        elif o in ('-c', '--config'):
-            configFile = a
-        elif o in ('-w', '--week'):
-            if doSeason:
-                usage()
-                sys.exit(1)
-            else:
-                try:
-                    thisWeek = int(a)
-                    doWeek = True
-                except (TypeError, ValueError):
-                    print('Error: Argument to -w must be a number',
-                          file=sys.stderr)
-                    usage()
-                    sys.exit(1)
-        elif o in ('-s', '--season'):
-            if doWeek:
-                usage()
-                sys.exit(1)
-            else:
-                doSeason = True
-        elif o == '-m':
-            postMessageEnabled = True
-        else:
-            usage()
-            sys.exit(1)
+    properties = readConfig(args.config)
 
-    if not doWeek and not doSeason:
-        doWeek = True
-
-    if not path == '':
-        configFile = path + os.pathsep + configFile
-    properties = readConfig(configFile)
-
-    if doWeek and thisWeek <= 0:
-        openingDay = datetime.date(int(properties['startYear']),
-                                   int(properties['startMonth']),
-                                   int(properties['startDate']))
-        openingWeek = openingDay.isocalendar()[1]
-        thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
+    # Determine the rankings period
+    if args.season:
+        doSeason = True
+    else:
+        thisWeek = args.week
+        if thisWeek <= 0:
+            openingDay = datetime.date(int(properties['startYear']),
+                                       int(properties['startMonth']),
+                                       int(properties['startDate']))
+            openingWeek = openingDay.isocalendar()[1]
+            thisWeek = datetime.date.today().isocalendar()[1] - openingWeek - 1
 
     leagueId = properties['leagueId']
     seasonId = properties['seasonId']
     lowerBetter = properties['lowerBetter'].split(',')
-    if doWeek:
-        pr = WeeklyRankings(leagueId, seasonId, lowerBetter, thisWeek)
-    else:
+    if doSeason:
         pr = SeasonRankings(leagueId, seasonId, lowerBetter)
+    else:
+        pr = WeeklyRankings(leagueId, seasonId, lowerBetter, thisWeek)
 
     pr.loginESPN(properties['username'], properties['password'])
     teamAbbrMap = pr.teamAbbreviations()
@@ -242,13 +192,14 @@ def main():
                   rankings, seasonId, thisWeek)
     printPowerMatrix(teamAbbrMap, rankings)
 
-    if postMessageEnabled:
-        if doWeek:
-            subject = 'Week %d Power Rankings' % thisWeek
-            period = 'week %d' % thisWeek
-        else:
+    # Post a message if requested
+    if args.postMessage:
+        if doSeason:
             subject = 'Season Power Rankings'
             period = 'the season so far'
+        else:
+            subject = 'Week %d Power Rankings' % thisWeek
+            period = 'week %d' % thisWeek
         (ret, fortune) = subprocess.getstatusoutput('fortune fortunes')
         # RANKINGS URL HERE
         msg = """Here are the power rankings for %s: [link]%s[/link]
@@ -262,4 +213,19 @@ def main():
         pr.postMessage(msg, subject)
 
 if __name__ == '__main__':
-    main()
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-c', '--config', default='pr.conf',
+                        help='configuration file to use')
+    matchupPeriodGroup = parser.add_mutually_exclusive_group()
+    matchupPeriodGroup.add_argument('-w', '--week', type=int, default=-1,
+                                    help='compute rankings for WEEK')
+    matchupPeriodGroup.add_argument('-s', '--season', action='store_true',
+                                    help='compute rankings for the season \
+                                    so far')
+    parser.add_argument('-m', '--post-message', dest='postMessage',
+                        action='store_true',
+                        help='post to the league message board')
+
+    args = parser.parse_args()
+    main(args)

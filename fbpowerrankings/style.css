@@ -10,10 +10,14 @@ td.tie {
     background-color: paleGoldenRod;
 }
 
+td.nomatchup {
+  background-color: white
+}
+
 td.total {
     font-weight: bold;
 }
 
 td.matchup {
     font-weight: bold;
-}    
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html lang="en">
+<head>
+    <title>{{ leagueName }} {{ year }} - {{ title }}</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <h2>{{ leagueName }} {{ year }} - {{ title }} Power Rankings{{ dateStr }}</h2>
+    <h3>Power Rankings</h3>
+    <table border="1">
+        <tr>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Record</th>
+            <th>
+                <acronym title="Aggregate Winning Percentage">AWP*</acronym>
+            </th>
+            <th>
+                <acronym title="Opponent Aggregate Winning Percentage">OAWP**</acronym>
+            </th>
+        </tr>
+        {% for row in rankings %}
+        <tr>
+            <td>{{ row['rank'] }}</td>
+            <td>{{ row['team'] }} ({{ row['abbr'] }})</td>
+            <td>{{ row['record'] }}</td>
+            <td>{{ row['awp'] }}</td>
+            <td>{{ row['oawp'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3>Relative Power Matrix</h3>
+    <em>Actual matchup in <strong>bold</strong>.</em>
+    <br>
+    <table border="1">
+        <tr>
+            <th>TEAM</th>
+            {% for team in teams %}
+            <th><acronym title="{{ team['fullName'] }}">{{ team['abbr'] }}</acronym></th>
+            {% endfor %}
+            <th><acronym title="Aggregate Winning Percentage">AWP*</acronym></th>
+        </tr>
+        {% for row in matrix %}
+        <tr>
+            <th><acronym title="{{ row['team']}}">{{ row['abbr'] }}</acronym></th>
+            {% for matchup in row['matchups'] %}
+            <td class="{{ matchup['cssClass'] }}">{{ matchup['record'] }}</td>
+            {% endfor %}
+            <td class="total">{{ row['record'] }} ({{ row['awp'] }})</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <p>* <em><strong>Aggregate Winning Percentage (AWP)</strong> - A team's combined record against every other team for the matchup period (week or season).</em></p>
+    <p>** <em><strong>Opponent Aggregate Winning Percentage (OAWP)</strong> - Average AWP of all opponents to date.</em>
+</body>
+</html>

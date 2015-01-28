@@ -29,6 +29,7 @@ The default action is to compute rankings for current matchup period.
 """
 
 from power_rankings import WeeklyRankings, SeasonRankings
+from jinja2 import FileSystemLoader, Environment
 import argparse
 import datetime
 import sys
@@ -46,81 +47,45 @@ def readConfig(configFile):
     return props
 
 
-def printRankings(leagueName, teamAbbrMap, rankings,
-                  seasonId, thisWeek):
+def printRankingsTemplate(leagueName, teamAbbrMap, rankings,
+                          seasonId, thisWeek):
     if thisWeek > 0:
         rankingsTitle = 'Week %s' % thisWeek
         dateStr = ''
     else:
         rankingsTitle = 'Season'
-        dateStr = '(%s)' % datetime.date.today().strftime('%x')
-    print("""\
-<html>
-<head>
-    <title>%(leagueName)s %(year)s - %(title)s</title>
-  <link rel="stylesheet" type="text/css" href="style.css">
-</head>
-<body>
-    <h2>%(leagueName)s %(year)s - %(title)s Power Rankings %(dateStr)s</h2>
+        dateStr = ' (%s)' % datetime.date.today().strftime('%x')
 
-  <h3>Power Rankings</h3>
-    <table border="1">
-      <tr>
-        <th>Rank</th>
-        <th>Team</th>
-        <th>Record</th>
-        <th>
-          <acronym title="Aggregate Winning Percentage">AWP*</acronym>
-        </th>
-        <th>
-          <acronym title="Opponent Aggregate Winning Percentage">OAWP**\
-</acronym>
-        </th>
-      </tr>
-""" % {'leagueName': leagueName, 'year': seasonId, 'title': rankingsTitle,
-       'dateStr': dateStr})
+    rankingsDisp = []
     for row in rankings:
         awp = ('%.3f' % row['awp'])[1:]
         oppAwp = ('%.3f' % row['oppAwp'])[1:]
-        print("""<tr><td>%d</td><td>%s (%s)</td><td>%d-%d-%d</td>\
-<td>%s</td><td>%s</td></tr>""" %
-              (row['rank'], row['team'], teamAbbrMap[row['team']],
-               row['wins'], row['losses'], row['ties'],
-               awp, oppAwp))
-    print("""
-    </table>
+        rankingsDisp.append({'rank': row['rank'], 'team': row['team'],
+                             'abbr': teamAbbrMap[row['team']],
+                             'record': '%d-%d-%d' % (row['wins'],
+                                                     row['losses'],
+                                                     row['ties']),
+                             'awp': awp, 'oawp': oppAwp})
+    return {'leagueName': leagueName, 'year': seasonId,
+            'title': rankingsTitle, 'dateStr': dateStr,
+            'rankings': rankingsDisp}
 
-  <br/>""")
 
-
-def printPowerMatrix(teamAbbrMap, rankings):
-    print("""
-  <h3>Relative Power Matrix</h3>
-  <i>Actual matchup in <b>bold</b>.
-  <br>
-  <table border="1">
-    <tr>
-      <th>TEAM</th>""")
-
+def printPowerMatrixTemplate(teamAbbrMap, rankings):
+    alphaTeams = []
     for team in sorted(teamAbbrMap, key=teamAbbrMap.get):
-        print("""      <th><acronym title="%s">%s</acronym></th>""" %
-              (team, teamAbbrMap[team]))
+        alphaTeams.append({'fullName': team, 'abbr': teamAbbrMap[team]})
 
-    print("""      <th><acronym title="Aggregate Winning Percentage">AWP*\
-</acronym></th>
-    </tr>
-""")
-
+    matrixDisp = []
     for row in sorted(rankings, key=lambda x: teamAbbrMap[x['team']]):
-        print('<tr>')
-        print('\t<th><acronym title="%s">%s</acronym></th>' %
-              (row['team'], teamAbbrMap[row['team']]))
-        wins = row['wins']
-        losses = row['losses']
-        ties = row['ties']
+        rowDisp = {'team': row['team'], 'abbr': teamAbbrMap[row['team']],
+                   'record': '%d-%d-%d' %
+                   (row['wins'], row['losses'], row['ties']),
+                   'awp': ('%.3f' % row['awp'])[1:], 'matchups': []}
         for opp in sorted(rankings, key=lambda x: teamAbbrMap[x['team']]):
             if row['team'] == opp['team']:
-                print('\t<td>&nbsp;</td>')
+                css = 'nomatchup'
+                record = '&nbsp;'
             else:
                 oppName = opp['team']
                 css = ''
@@ -135,27 +100,22 @@ def printPowerMatrix(teamAbbrMap, rankings):
                     css += 'loss'
                 else:
                     css += 'tie'
-                print('\t<td class="%s">%d-%d-%d</td>' %
-                      (css, oppWins, oppLosses, oppTies))
-        awp = (wins + ties / 2.0) / (wins + losses + ties)
-        awp = ('%.3f' % awp)[1:]
-        print('\t<td class="total">%d-%d-%d (%s)</td>' %
-              (wins, losses, ties, awp))
-        print('</tr>')
+                record = '%d-%d-%d' % (oppWins, oppLosses, oppTies)
 
-    print("""\
-</table>
-  <br>
-  * <i><b>Aggregate Winning Percentage (AWP)</b> - A team's combined record \
-against every other team for the week.</i>
-  <br>
-  ** <i><b>Opponent Aggregate Winning Percentage (OAWP)</b> - Average AWP of \
-all opponents to date.</i>
-  <br /><br />
-  <a href="../rankings">Other Weeks</a>
-</body>
-</html>
-""")
+            rowDisp['matchups'].append({'cssClass': css, 'record': record})
+
+        matrixDisp.append(rowDisp)
+
+    return {'teams': alphaTeams, 'matrix': matrixDisp}
+
+
+def renderOutput(leagueName, teamAbbrMap, rankings,
+                 seasonId, thisWeek, template):
+    rankingsMap = printRankingsTemplate(leagueName, teamAbbrMap, rankings,
+                                        seasonId, thisWeek)
+    matrixMap = printPowerMatrixTemplate(teamAbbrMap, rankings)
+    renderMap = dict(list(rankingsMap.items()) + list(matrixMap.items()))
+    print(template.render(renderMap))
 
 
 def main(args):
@@ -187,9 +147,11 @@ def main(args):
     teamAbbrMap = pr.teamAbbreviations()
     rankings = pr.powerRankings()
 
-    printRankings(properties['leagueName'], teamAbbrMap,
-                  rankings, seasonId, thisWeek)
-    printPowerMatrix(teamAbbrMap, rankings)
+    htmlEnv = Environment(loader=FileSystemLoader('templates'),
+                          trim_blocks=True, lstrip_blocks=True)
+    template = htmlEnv.get_template('rankings.html')
+    renderOutput(properties['leagueName'], teamAbbrMap, rankings,
+                 seasonId, thisWeek, template)
 
     # Post a message if requested
     if args.postMessage:

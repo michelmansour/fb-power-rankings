@@ -141,7 +141,7 @@ class PowerRankings:
             if re.compile("[0-9]+").match(str(cells[0].contents[0])):
                 abbr = cells[1].contents[0]
                 teamName = cells[2].findAll('a')[0].contents[0]
-                teamAbbrMap[str(teamName.strip())] = str(abbr)
+                teamAbbrMap[str(teamName.strip())] = str(abbr.strip())
 
         return teamAbbrMap
 

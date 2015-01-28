@@ -84,15 +84,19 @@ Second most critically, it depends on [Requests][1] to perform the HTTP requests
 
 [1]:http://docs.python-requests.org/en/latest/
 
-Last most critically, it depends on the venerable [Beautiful Soup][2] library.
+Third most critically, it depends on the venerable [Beautiful Soup][2] library.
 Additionally, it uses [lxml][3] as Beautiful Soup's underlying HTML parser.
 The Beautiful Soup documentation contains information on [installing lxml][4].
 The Python 3 code only works with Beautiful Soup 4, while the Python 2
 branch has only been tested to work with Beautiful Soup 3.
 
+Last most critically, the command line script uses [Jinja2][5] to produce its
+HTML output.
+
 [2]: http://www.crummy.com/software/BeautifulSoup/
 [3]: http://lxml.de/
 [4]: http://www.crummy.com/software/BeautifulSoup/bs4/doc/#installing-a-parser
+[5]: http://jinja.pocoo.org/
 
 
 

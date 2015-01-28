@@ -47,7 +47,7 @@ def readConfig(configFile):
     return props
 
 
-def printRankingsTemplate(leagueName, teamAbbrMap, rankings,
+def rankingsForTemplate(leagueName, teamAbbrMap, rankings,
                           seasonId, thisWeek):
     if thisWeek > 0:
         rankingsTitle = 'Week %s' % thisWeek
@@ -71,7 +71,7 @@ def printRankingsTemplate(leagueName, teamAbbrMap, rankings,
             'rankings': rankingsDisp}
 
 
-def printPowerMatrixTemplate(teamAbbrMap, rankings):
+def powerMatrixForTemplate(teamAbbrMap, rankings):
     alphaTeams = []
     for team in sorted(teamAbbrMap, key=teamAbbrMap.get):
         alphaTeams.append({'fullName': team, 'abbr': teamAbbrMap[team]})
@@ -111,9 +111,9 @@ def printPowerMatrixTemplate(teamAbbrMap, rankings):
 
 def renderOutput(leagueName, teamAbbrMap, rankings,
                  seasonId, thisWeek, template):
-    rankingsMap = printRankingsTemplate(leagueName, teamAbbrMap, rankings,
-                                        seasonId, thisWeek)
-    matrixMap = printPowerMatrixTemplate(teamAbbrMap, rankings)
+    rankingsMap = rankingsForTemplate(leagueName, teamAbbrMap, rankings,
+                                      seasonId, thisWeek)
+    matrixMap = powerMatrixForTemplate(teamAbbrMap, rankings)
     renderMap = dict(list(rankingsMap.items()) + list(matrixMap.items()))
     print(template.render(renderMap))
 

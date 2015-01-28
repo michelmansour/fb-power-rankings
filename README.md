@@ -102,4 +102,4 @@ HTML output.
 
 ## License and Copyright
 Distributed under the MIT License.
-Copyright (c) 2014 Michel Mansour.
+Copyright (c) 2015 Michel Mansour.
